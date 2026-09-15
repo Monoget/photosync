@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
+from core.services.telemetry import sync_registration_async
+from core.services.update_checker import UpdateChecker
 from infrastructure.configuration.paths import AppPaths
 from infrastructure.configuration.settings_store import SettingsStore
 from infrastructure.database.db import DeviceStore, PhotoStore, migrate
@@ -78,4 +80,21 @@ def run(argv: list[str]) -> int:
     app.aboutToQuit.connect(discovery.stop)
     app.aboutToQuit.connect(receiver.stop)
 
+    # Best-effort server sync + update check; the app never depends on them.
+    sync_registration_async(settings, APP_VERSION)
+    checker = UpdateChecker(settings, APP_VERSION)
+    checker.update_available.connect(
+        lambda info: _show_update_dialog(app, window, info, checker)
+    )
+    QTimer.singleShot(5000, checker.check_async)
+
     return app.exec()
+
+
+def _show_update_dialog(app, window, info: dict, checker: UpdateChecker) -> None:
+    from ui.dialogs.update_dialog import UpdateDialog
+
+    dialog = UpdateDialog(info, checker, window)
+    if dialog.exec() == UpdateDialog.DialogCode.Accepted:
+        # Installer launched; exit so it can replace the executable.
+        app.quit()
