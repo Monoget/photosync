@@ -40,6 +40,18 @@ APK output: `mobile\app\build\outputs\apk\debug\app-debug.apk`.
 `mobile/local.properties` is machine-specific (Android SDK path) and not
 meant for version control.
 
+### Signed release APK
+
+```powershell
+python mobile\generate_keystore.py    # one-time; creates keystore + credentials
+cd mobile
+.\gradlew.bat assembleRelease         # -> app\build\outputs\apk\release\app-release.apk
+```
+
+`photosync-release.keystore` and `keystore.properties` are git-ignored —
+**back them up**; losing the keystore means installed apps can never be
+updated. Without them, `assembleRelease` produces an unsigned build.
+
 ## Build the Windows release
 
 ```powershell
@@ -49,8 +61,15 @@ powershell -File installer\build.ps1
 
 This produces `dist\PhotoSync\PhotoSync.exe` and, when Inno Setup's `iscc`
 is on PATH, the installer at `installer\output\PhotoSync-<version>-Setup.exe`.
-Sign the installer (Authenticode) before distribution, record its SHA-256,
-and publish it to the update feed with `server\add_release.py`.
+
+**Authenticode signing** is built into the pipeline: set either
+`CODESIGN_THUMBPRINT` (certificate in the CurrentUser store — EV token or
+Azure Trusted Signing) or `CODESIGN_PFX` + `CODESIGN_PFX_PASSWORD`, and
+`build.ps1` signs and timestamps both the exe and the installer
+(`installer\sign.ps1` can also sign any file directly). Until a
+certificate from a CA is configured, builds are unsigned and SmartScreen
+will warn. After signing, record the installer's SHA-256 and publish it
+to the update feed with `server\add_release.py`.
 
 ## Run the server
 

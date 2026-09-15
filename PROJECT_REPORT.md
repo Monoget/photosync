@@ -317,11 +317,22 @@ listed below.
 
 ## 10. Known limitations / recommended next steps
 
-1. **Code signing** — the Windows installer/exe are unsigned
-   (SmartScreen will warn). Acquire an Authenticode certificate; the
-   update checker already prefers signed releases per spec §25.
-2. **Android release signing** — only the debug APK is configured;
-   add a `signingConfig` + keystore for a release build.
+1. **Windows code signing** — the signing *pipeline* is in place
+   (`installer/sign.ps1`, auto-invoked by `build.ps1` when
+   `CODESIGN_THUMBPRINT` or `CODESIGN_PFX`+`CODESIGN_PFX_PASSWORD` are
+   set), but removing SmartScreen warnings requires purchasing an
+   Authenticode certificate: an **EV certificate** (~$300–500/yr,
+   immediate SmartScreen reputation) or **Azure Trusted Signing**
+   (~$10/mo, identity-validated) for instant trust; a standard OV
+   certificate (~$100–400/yr) signs the app but reputation builds over
+   downloads. Until then, builds are unsigned and SmartScreen warns.
+2. **Android release signing** — **done.** `mobile/generate_keystore.py`
+   created a 4096-bit RSA release keystore; `assembleRelease` produces a
+   signed, minified APK (1.5 MB). The keystore and `keystore.properties`
+   are git-ignored — **back them up**: losing the keystore permanently
+   breaks app updates for existing installs. Sideload installs still show
+   Android's one-time "unknown sources" prompt (only Play Store
+   distribution avoids that).
 3. **Server deployment** — `server/` is ready but not hosted. Deploy
    behind HTTPS, set `ADMIN_USER`/`ADMIN_PASSWORD`, then point clients
    via `API_BASE_URL`/`UPDATE_BASE_URL`.

@@ -1,5 +1,8 @@
 *.iml
 .gradle
+# Release signing secrets — never commit; back up separately
+*.keystore
+keystore.properties
 /local.properties
 /.idea
 .DS_Store
