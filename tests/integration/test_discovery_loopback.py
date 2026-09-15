@@ -41,7 +41,7 @@ def test_announce_and_discover_phone(qapp):
     service = DiscoveryService(app_version="test")
     service.device_found.connect(found.append)
     service.announcing_changed.connect(announced.append)
-    service.start()
+    service.start(port=45001)
 
     assert pump_until(lambda: announced), "announcement never started"
     assert announced[-1] is True

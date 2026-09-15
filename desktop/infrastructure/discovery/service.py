@@ -82,21 +82,17 @@ class DiscoveryService(QObject):
         self._zeroconf: Zeroconf | None = None
         self._browser: ServiceBrowser | None = None
         self._service_info: ServiceInfo | None = None
-        self._receiver_socket: socket.socket | None = None
 
     # -- Lifecycle ------------------------------------------------------
 
-    def start(self) -> None:
-        """Kick off announce + browse without blocking the GUI thread."""
-        threading.Thread(target=self._start_blocking, daemon=True).start()
+    def start(self, port: int) -> None:
+        """Announce the given receiver port + browse, off the GUI thread."""
+        threading.Thread(
+            target=self._start_blocking, args=(port,), daemon=True
+        ).start()
 
-    def _start_blocking(self) -> None:
+    def _start_blocking(self, port: int) -> None:
         try:
-            self._receiver_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._receiver_socket.bind(("", 0))
-            self._receiver_socket.listen()
-            port = self._receiver_socket.getsockname()[1]
-
             hostname = socket.gethostname()
             ip = local_ip()
             self._service_info = ServiceInfo(
@@ -134,9 +130,6 @@ class DiscoveryService(QObject):
                 zc.close()
             except OSError:
                 log.exception("Error stopping discovery")
-        if self._receiver_socket is not None:
-            self._receiver_socket.close()
-            self._receiver_socket = None
         self.announcing_changed.emit(False)
 
     # -- Browsing (called on zeroconf threads) --------------------------

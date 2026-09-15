@@ -15,7 +15,9 @@ from PySide6.QtWidgets import (
 
 from core.models.device import DiscoveredDevice
 from infrastructure.configuration.settings_store import SettingsStore
+from infrastructure.database.db import DeviceStore
 from infrastructure.discovery.service import DiscoveryService
+from infrastructure.networking.receiver import ReceiverServer
 from ui.pages.about_page import AboutPage
 from ui.pages.dashboard_page import DashboardPage
 from ui.pages.devices_page import DevicesPage
@@ -29,6 +31,8 @@ class MainWindow(QMainWindow):
         app_version: str,
         settings: SettingsStore | None = None,
         discovery: DiscoveryService | None = None,
+        receiver: ReceiverServer | None = None,
+        device_store: DeviceStore | None = None,
     ) -> None:
         super().__init__()
         self._discovery = discovery
@@ -49,7 +53,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
 
         self.dashboard = DashboardPage(settings)
-        self.devices_page = DevicesPage()
+        self.devices_page = DevicesPage(receiver=receiver, device_store=device_store)
         self._add_page("Dashboard", self.dashboard)
         self._add_page("Devices", self.devices_page)
         self._add_page("Backup History", HistoryPage())

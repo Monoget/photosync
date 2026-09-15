@@ -59,5 +59,16 @@ meant for version control.
   phones and the dashboard shows a device count; the Android home screen
   shows "Searching…" / discovered PC. Verified with a real mDNS loopback
   integration test.
-- Next: Phase 4 (pairing: QR/code, device identity, trust storage). See
-  `instruction/PhotoSync_Claude_Code_Prompt.md`, section 36.
+- Phase 4 (Pairing) — **done.** The desktop runs a TLS receiver
+  (`ThreadingHTTPServer` + a persistent self-signed EC certificate;
+  discovery now advertises its port). Pairing: the PC shows a single-use
+  6-digit code + QR (Devices → "Pair a Device"), the phone submits it over
+  HTTPS with the certificate fingerprint pinned trust-on-first-use, and on
+  success receives a bearer token. Trust is stored in SQLite on the PC
+  (token hash only) and SharedPreferences on the phone. Wrong codes are
+  rate-limited (5 attempts), the receiver serves private/loopback addresses
+  only, and the phone re-verifies the pairing with an authenticated ping
+  whenever the network view changes — "Connected to <PC>" is live status.
+- Next: Phase 5 (basic transfer: MediaStore scan, transfer queue, Windows
+  receiver endpoint). See `instruction/PhotoSync_Claude_Code_Prompt.md`,
+  section 36.

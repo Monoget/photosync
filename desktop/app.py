@@ -8,8 +8,11 @@ from PySide6.QtWidgets import QApplication
 
 from infrastructure.configuration.paths import AppPaths
 from infrastructure.configuration.settings_store import SettingsStore
+from infrastructure.database.db import DeviceStore, migrate
 from infrastructure.discovery.service import DiscoveryService
 from infrastructure.logging_setup import configure_logging
+from infrastructure.networking.receiver import ReceiverServer
+from infrastructure.security.identity import DeviceIdentity
 from ui.dialogs.setup_wizard import SetupWizard
 from ui.styles.theme import Theme, apply_theme
 from ui.windows.main_window import MainWindow
@@ -46,12 +49,29 @@ def run(argv: list[str]) -> int:
             log.info("Setup cancelled; exiting")
             return 0
 
+    migrate(paths.database_path)
+    device_store = DeviceStore(paths.database_path)
+    identity = DeviceIdentity.load_or_create(paths.data_dir)
+    receiver = ReceiverServer(
+        identity=identity,
+        device_store=device_store,
+        pc_id=settings.installation_id,
+        app_version=APP_VERSION,
+    )
+
     discovery = DiscoveryService(app_version=APP_VERSION)
     window = MainWindow(
-        app_version=APP_VERSION, settings=settings, discovery=discovery
+        app_version=APP_VERSION,
+        settings=settings,
+        discovery=discovery,
+        receiver=receiver,
+        device_store=device_store,
     )
     window.show()
-    discovery.start()
+
+    receiver.start()
+    discovery.start(port=receiver.port)
     app.aboutToQuit.connect(discovery.stop)
+    app.aboutToQuit.connect(receiver.stop)
 
     return app.exec()
