@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+desktop/.venv/
+.pytest_cache/
+build/
+dist/
+*.spec
+
+# Android / Gradle
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+mobile/captures/
+mobile/.externalNativeBuild/
+mobile/.cxx/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store

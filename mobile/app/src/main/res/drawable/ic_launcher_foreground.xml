@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple camera glyph on the adaptive-icon safe area -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.6"
+        android:scaleY="1.6"
+        android:pivotX="54"
+        android:pivotY="54">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M44,44 L46.5,41 L61.5,41 L64,44 L69,44 A2,2 0 0 1 71,46 L71,64 A2,2 0 0 1 69,66 L39,66 A2,2 0 0 1 37,64 L37,46 A2,2 0 0 1 39,44 Z" />
+        <path
+            android:fillColor="#2563EB"
+            android:pathData="M54,48 A7,7 0 1 1 53.99,48 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,51 A4,4 0 1 1 53.99,51 Z" />
+    </group>
+</vector>
