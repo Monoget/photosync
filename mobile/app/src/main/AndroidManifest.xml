@@ -7,6 +7,9 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Completion notifications for background backup (optional) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Local network sync (used from Phase 3 onward) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

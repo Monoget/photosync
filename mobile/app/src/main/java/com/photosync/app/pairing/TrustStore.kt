@@ -29,6 +29,11 @@ class TrustStore(context: Context) {
         get() = prefs.getString(KEY_DEVICE_ID, null) ?: UUID.randomUUID().toString()
             .also { prefs.edit { putString(KEY_DEVICE_ID, it) } }
 
+    /** Whether background auto-backup is enabled. */
+    var autoBackup: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_BACKUP, false)
+        set(value) = prefs.edit { putBoolean(KEY_AUTO_BACKUP, value) }
+
     /** Epoch millis of the last successful backup run, or null. */
     var lastBackupMs: Long?
         get() = prefs.getLong(KEY_LAST_BACKUP, -1L).takeIf { it > 0 }
@@ -68,5 +73,6 @@ class TrustStore(context: Context) {
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_TRUSTED_PC = "trusted_pc"
         const val KEY_LAST_BACKUP = "last_backup_ms"
+        const val KEY_AUTO_BACKUP = "auto_backup"
     }
 }

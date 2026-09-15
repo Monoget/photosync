@@ -58,6 +58,9 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { viewModel.onPermissionResult() }
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* notifications are optional */ }
 
     pairTarget?.let { target ->
         PairDialog(
@@ -94,7 +97,18 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                     },
                 )
             }
-            AutoBackupCard()
+            AutoBackupCard(
+                enabled = state.pairedPc != null,
+                checked = state.autoBackup,
+                onToggle = { on ->
+                    viewModel.setAutoBackup(on)
+                    if (on && android.os.Build.VERSION.SDK_INT >= 33) {
+                        notificationLauncher.launch(
+                            android.Manifest.permission.POST_NOTIFICATIONS
+                        )
+                    }
+                },
+            )
             StatsCard(state)
             if (state.backup.running) {
                 BackupProgressCard(state.backup)
@@ -235,7 +249,11 @@ private fun StatusRow(
 }
 
 @Composable
-private fun AutoBackupCard() {
+private fun AutoBackupCard(
+    enabled: Boolean,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier
@@ -244,8 +262,19 @@ private fun AutoBackupCard() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Automatic Backup", style = MaterialTheme.typography.titleMedium)
-            Switch(checked = false, onCheckedChange = null, enabled = false)
+            Column(Modifier.weight(1f)) {
+                Text("Automatic Backup", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (enabled) {
+                        "Backs up new photos when your PC is on the same Wi-Fi"
+                    } else {
+                        "Pair with a PC to enable"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = checked, onCheckedChange = onToggle, enabled = enabled)
         }
     }
 }

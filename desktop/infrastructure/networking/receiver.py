@@ -15,11 +15,13 @@ import hmac
 import ipaddress
 import json
 import logging
+import re
 import secrets
+import shutil
 import socket
 import threading
+import time
 import urllib.parse
-import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -40,6 +42,28 @@ MAX_BODY_BYTES = 64 * 1024
 MAX_PAIR_ATTEMPTS = 5
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB per file
 UPLOAD_CHUNK = 256 * 1024
+DISK_RESERVE_BYTES = 200 * 1024 * 1024  # never fill the drive completely
+STALE_PART_AGE_S = 7 * 24 * 3600
+
+
+def part_path(tmp_dir: Path, device_id: str, media_id: str) -> Path:
+    """Deterministic .part name so an interrupted transfer can resume."""
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", f"{device_id[:24]}_{media_id[:32]}")
+    return tmp_dir / f"{safe}.part"
+
+
+def clean_stale_parts(tmp_dir: Path, max_age_s: float = STALE_PART_AGE_S) -> None:
+    """Delete abandoned .part files (spec §15 partial-file hygiene)."""
+    if not tmp_dir.is_dir():
+        return
+    cutoff = time.time() - max_age_s
+    for part in tmp_dir.glob("*.part"):
+        try:
+            if part.stat().st_mtime < cutoff:
+                part.unlink()
+                log.info("Removed stale partial file %s", part.name)
+        except OSError:
+            continue
 
 
 def is_local_address(address: str) -> bool:
@@ -173,8 +197,37 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             srv.device_store.touch_last_seen(device["device_id"])  # type: ignore[attr-defined]
             self._send_json(200, {"ok": True, "name": socket.gethostname()})
+        elif self.path.startswith("/api/v1/upload/offset"):
+            self._handle_offset_query()
         else:
             self._send_json(404, {"error": "not found"})
+
+    def _handle_offset_query(self) -> None:
+        """How many bytes of this media id's .part file are already here?"""
+        srv = self.server
+        device = self._bearer_device()
+        if device is None:
+            self._send_json(401, {"error": "unauthorized"})
+            return
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        media_id = (query.get("media_id") or [""])[0].strip()[:64]
+        if not media_id:
+            self._send_json(400, {"error": "media_id required"})
+            return
+        device_id = device["device_id"]
+        if srv.photo_store is not None and srv.photo_store.completed_exists(  # type: ignore[attr-defined]
+            device_id, media_id
+        ):
+            self._send_json(200, {"complete": True, "offset": 0})
+            return
+        settings = srv.settings  # type: ignore[attr-defined]
+        dest_root = settings.destination_dir if settings else None
+        offset = 0
+        if dest_root is not None:
+            part = part_path(Path(dest_root) / ".photosync-tmp", device_id, media_id)
+            if part.exists():
+                offset = part.stat().st_size
+        self._send_json(200, {"complete": False, "offset": offset})
 
     def do_POST(self) -> None:  # noqa: N802
         if self._reject_non_local():
@@ -263,6 +316,8 @@ class _Handler(BaseHTTPRequestHandler):
 
         if device is None:
             return fail(401, "unauthorized")
+        if getattr(srv, "paused", False):
+            return fail(503, "backup is paused on the PC")
         if length <= 0 or length > MAX_UPLOAD_BYTES:
             return fail(400, "invalid content length", discard=False)
 
@@ -310,30 +365,66 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "duplicate": True})
             return
 
+        # Resume support (spec §15): this request carries `length` bytes of
+        # a `total`-byte file starting at `offset`. A deterministic .part
+        # name lets an interrupted transfer continue where it stopped.
+        try:
+            total = int(self.headers.get("X-PhotoSync-Total-Size", str(length)))
+            offset = int(self.headers.get("X-PhotoSync-Offset", "0"))
+        except ValueError:
+            return fail(400, "invalid resume headers")
+        if total <= 0 or total > MAX_UPLOAD_BYTES or offset < 0 \
+                or offset + length > total:
+            return fail(400, "inconsistent resume headers")
+
+        try:
+            free = shutil.disk_usage(dest_root).free
+        except OSError as exc:
+            return fail(500, f"destination unavailable: {exc.strerror or exc}")
+        if free < total + DISK_RESERVE_BYTES:
+            return fail(507, "insufficient disk space on the backup drive")
+
         tmp_dir = Path(dest_root) / ".photosync-tmp"
         try:
             tmp_dir.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             return fail(500, f"destination unavailable: {exc.strerror or exc}")
 
-        part = tmp_dir / f"{uuid.uuid4().hex}.part"
-        digest = hashlib.sha256()
+        part = part_path(tmp_dir, device_id, media_id)
+        current = part.stat().st_size if part.exists() else 0
+        if offset != current and offset != 0:
+            return fail(409, f"offset mismatch, have {current}")
+
         received = 0
         try:
-            with open(part, "wb") as out:
+            with open(part, "wb" if offset == 0 else "ab") as out:
                 while received < length:
                     chunk = self.rfile.read(min(UPLOAD_CHUNK, length - received))
                     if not chunk:
                         break
                     out.write(chunk)
-                    digest.update(chunk)
                     received += len(chunk)
 
             if received != length:
-                part.unlink(missing_ok=True)
-                # connection is broken; no clean response possible
-                self._send_json(400, {"error": "incomplete upload"})
+                # Connection broke mid-transfer: keep the .part so the
+                # phone can resume from the current offset (spec §15).
+                log.warning(
+                    "Interrupted upload of %s at %d/%d bytes",
+                    filename, offset + received, total,
+                )
                 return
+
+            if offset + length < total:
+                self._send_json(
+                    200, {"ok": True, "partial": True, "received": offset + length}
+                )
+                return
+
+            # Whole file present — verify before it ever becomes visible.
+            digest = hashlib.sha256()
+            with open(part, "rb") as done:
+                for chunk in iter(lambda: done.read(UPLOAD_CHUNK), b""):
+                    digest.update(chunk)
             if digest.hexdigest() != expected_hash:
                 part.unlink(missing_ok=True)
                 self._send_json(400, {"error": "hash mismatch"})
@@ -343,7 +434,6 @@ class _Handler(BaseHTTPRequestHandler):
             final.parent.mkdir(parents=True, exist_ok=True)
             part.replace(final)
         except OSError as exc:
-            part.unlink(missing_ok=True)
             log.exception("Upload failed for %s", filename)
             self._send_json(500, {"error": f"write failed: {exc.strerror or exc}"})
             return
@@ -352,14 +442,14 @@ class _Handler(BaseHTTPRequestHandler):
             device_id=device_id,
             media_id=media_id,
             filename=final.name,
-            file_size=length,
+            file_size=total,
             date_taken=taken_at.isoformat() if taken_at else None,
             content_hash=expected_hash,
             destination_path=str(final),
         )
         srv.device_store.touch_last_seen(device_id)  # type: ignore[attr-defined]
         srv.transfer_events.photo_received.emit(final.name)  # type: ignore[attr-defined]
-        log.info("Received %s (%d bytes) from %s", final.name, length, device["name"])
+        log.info("Received %s (%d bytes) from %s", final.name, total, device["name"])
         self._send_json(200, {"ok": True, "duplicate": False})
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002
@@ -405,7 +495,19 @@ class ReceiverServer:
     def fingerprint(self) -> str:
         return self._identity.fingerprint
 
+    def set_paused(self, paused: bool) -> None:
+        self._httpd.paused = paused  # type: ignore[attr-defined]
+        log.info("Backup receiving %s", "paused" if paused else "resumed")
+
+    @property
+    def paused(self) -> bool:
+        return bool(getattr(self._httpd, "paused", False))
+
     def start(self) -> None:
+        settings = getattr(self._httpd, "settings", None)
+        dest = settings.destination_dir if settings else None
+        if dest is not None:
+            clean_stale_parts(Path(dest) / ".photosync-tmp")
         self._thread = threading.Thread(
             target=self._httpd.serve_forever, daemon=True, name="receiver"
         )

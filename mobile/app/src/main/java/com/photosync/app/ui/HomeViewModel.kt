@@ -6,15 +6,15 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.photosync.app.backup.BackupStateDb
+import com.photosync.app.backup.AutoBackupWorker
+import com.photosync.app.backup.BackupEngine
+import com.photosync.app.backup.BackupRun
 import com.photosync.app.discovery.DiscoveredPc
 import com.photosync.app.discovery.PcDiscovery
 import com.photosync.app.media.GalleryScanner
 import com.photosync.app.pairing.PairingClient
 import com.photosync.app.pairing.TrustStore
 import com.photosync.app.pairing.TrustedPc
-import com.photosync.app.transfer.UploadClient
-import com.photosync.app.transfer.UploadResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +42,7 @@ data class HomeUiState(
     val hasPermission: Boolean = false,
     val photoCount: Int? = null,
     val backedUpCount: Int? = null,
+    val autoBackup: Boolean = false,
     val backup: BackupProgress = BackupProgress(),
     val lastBackupMs: Long? = null,
 ) {
@@ -57,14 +58,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 android.Manifest.permission.READ_EXTERNAL_STORAGE
             }
+        private const val AUTO_RUN_MIN_INTERVAL_MS = 15 * 60 * 1000L
     }
 
     private val discovery = PcDiscovery(application)
     private val trustStore = TrustStore(application)
     private val client = PairingClient()
     private val scanner = GalleryScanner(application)
-    private val uploader = UploadClient(application)
-    private val stateDb = BackupStateDb(application)
+    private val engine = BackupEngine(application)
 
     private val pairedPc = MutableStateFlow(trustStore.trustedPc)
     private val connectedPc = MutableStateFlow<DiscoveredPc?>(null)
@@ -72,8 +73,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val hasPermission = MutableStateFlow(checkPermission())
     private val photoCount = MutableStateFlow<Int?>(null)
     private val backedUpCount = MutableStateFlow<Int?>(null)
+    private val autoBackup = MutableStateFlow(trustStore.autoBackup)
     private val backup = MutableStateFlow(BackupProgress())
     private val lastBackupMs = MutableStateFlow(trustStore.lastBackupMs)
+    private var lastAutoRunMs = 0L
 
     val uiState: StateFlow<HomeUiState> =
         combine(
@@ -82,8 +85,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             combine(hasPermission, photoCount, backedUpCount) { hp, pc, bc ->
                 Triple(hp, pc, bc)
             },
-            combine(backup, lastBackupMs) { b, l -> b to l },
-        ) { (searching, pcs, paired), (connected, status), (perm, count, backed), (bk, last) ->
+            combine(backup, lastBackupMs, autoBackup) { b, l, a -> Triple(b, l, a) },
+        ) { (searching, pcs, paired), (connected, status), (perm, count, backed),
+            (bk, last, auto) ->
             HomeUiState(
                 searching = searching,
                 pcs = pcs,
@@ -93,6 +97,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 hasPermission = perm,
                 photoCount = count,
                 backedUpCount = backed,
+                autoBackup = auto,
                 backup = bk,
                 lastBackupMs = last,
             )
@@ -102,10 +107,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         discovery.start()
         viewModelScope.launch {
             combine(discovery.pcs, pairedPc) { pcs, paired -> pcs to paired }
-                .collect { (pcs, paired) -> connectedPc.value = verify(pcs, paired) }
+                .collect { (pcs, paired) ->
+                    connectedPc.value = verify(pcs, paired)
+                    maybeAutoBackup()
+                }
         }
         if (hasPermission.value) refreshGallery()
         refreshBackedUpCount()
+        AutoBackupWorker.sync(application, trustStore.autoBackup)
     }
 
     private fun checkPermission(): Boolean =
@@ -127,7 +136,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun refreshBackedUpCount() {
         val pcId = pairedPc.value?.pcId ?: return
-        backedUpCount.value = stateDb.count(pcId)
+        backedUpCount.value = engine.backedUpCount(pcId)
     }
 
     private suspend fun verify(pcs: List<DiscoveredPc>, paired: TrustedPc?): DiscoveredPc? {
@@ -162,6 +171,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         pairingStatus.value = PairingStatus.IDLE
     }
 
+    fun setAutoBackup(enabled: Boolean) {
+        trustStore.autoBackup = enabled
+        autoBackup.value = enabled
+        AutoBackupWorker.sync(getApplication(), enabled)
+        if (enabled) maybeAutoBackup()
+    }
+
+    /** Kick off a backup when the trusted PC appears, at most every 15 min. */
+    private fun maybeAutoBackup() {
+        if (!autoBackup.value || connectedPc.value == null) return
+        if (!hasPermission.value || backup.value.running) return
+        val now = System.currentTimeMillis()
+        if (now - lastAutoRunMs < AUTO_RUN_MIN_INTERVAL_MS) return
+        lastAutoRunMs = now
+        backupNow()
+    }
+
     fun backupNow() {
         val pc = connectedPc.value ?: return
         val trusted = pairedPc.value ?: return
@@ -169,68 +195,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             backup.value = BackupProgress(running = true)
-            val photos = runCatching { scanner.scan() }.getOrDefault(emptyList())
-            photoCount.value = photos.size
+            runCatching { photoCount.value = scanner.scan().size }
 
-            // 1. Skip everything this phone already knows is backed up.
-            val known = stateDb.backedUpIds(trusted.pcId)
-            var candidates = photos.filter { it.mediaId !in known }
-
-            // 2. Reconcile the rest with the PC's backup state in batches;
-            //    ids the PC already has are marked locally and skipped.
-            //    If a check fails we fall back to uploading (the PC dedups).
-            val needed = mutableSetOf<Long>()
-            var checksFailed = false
-            for (batch in candidates.chunked(500)) {
-                uploader.syncCheck(pc.host, pc.port, trusted, batch.map { it.mediaId })
-                    .onSuccess { neededIds ->
-                        needed += neededIds
-                        stateDb.markBackedUp(
-                            trusted.pcId,
-                            batch.map { it.mediaId }.filter { it !in neededIds },
-                        )
-                    }
-                    .onFailure {
-                        checksFailed = true
-                        needed += batch.map { it.mediaId }
-                    }
-            }
-            if (!checksFailed) {
-                candidates = candidates.filter { it.mediaId in needed }
-            }
-            refreshBackedUpCount()
-
-            backup.value = backup.value.copy(total = candidates.size)
-            var uploaded = 0
-            var duplicates = 0
-            var failed = 0
-            for ((index, photo) in candidates.withIndex()) {
-                when (uploader.upload(pc.host, pc.port, trusted, photo)) {
-                    is UploadResult.Uploaded -> {
-                        uploaded++
-                        stateDb.markBackedUp(trusted.pcId, listOf(photo.mediaId))
-                    }
-                    is UploadResult.Duplicate -> {
-                        duplicates++
-                        stateDb.markBackedUp(trusted.pcId, listOf(photo.mediaId))
-                    }
-                    is UploadResult.Failed -> failed++  // one bad file never stops the run
-                }
-                backup.value = backup.value.copy(
-                    done = index + 1,
-                    uploaded = uploaded,
-                    duplicates = duplicates,
-                    failed = failed,
+            val result = engine.run(pc, trusted) { run: BackupRun ->
+                backup.value = BackupProgress(
+                    running = true,
+                    total = run.total,
+                    done = run.done,
+                    uploaded = run.uploaded,
+                    duplicates = run.duplicates,
+                    failed = run.failed,
                 )
             }
 
-            if (failed == 0 || uploaded > 0 || duplicates > 0) {
-                val now = System.currentTimeMillis()
-                trustStore.lastBackupMs = now
-                lastBackupMs.value = now
-            }
+            lastBackupMs.value = trustStore.lastBackupMs
             refreshBackedUpCount()
-            backup.value = backup.value.copy(running = false)
+            backup.value = BackupProgress(
+                running = false,
+                total = result.total,
+                done = result.done,
+                uploaded = result.uploaded,
+                duplicates = result.duplicates,
+                failed = result.failed,
+            )
         }
     }
 
