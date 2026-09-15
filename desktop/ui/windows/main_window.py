@@ -13,7 +13,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.models.device import DiscoveredDevice
 from infrastructure.configuration.settings_store import SettingsStore
+from infrastructure.discovery.service import DiscoveryService
 from ui.pages.about_page import AboutPage
 from ui.pages.dashboard_page import DashboardPage
 from ui.pages.devices_page import DevicesPage
@@ -22,8 +24,15 @@ from ui.pages.settings_page import SettingsPage
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, app_version: str, settings: SettingsStore | None = None) -> None:
+    def __init__(
+        self,
+        app_version: str,
+        settings: SettingsStore | None = None,
+        discovery: DiscoveryService | None = None,
+    ) -> None:
         super().__init__()
+        self._discovery = discovery
+        self._network_devices: set[str] = set()
         self.setWindowTitle("PhotoSync")
         self.setMinimumSize(QSize(960, 640))
 
@@ -39,14 +48,33 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._pages, stretch=1)
         self.setCentralWidget(root)
 
-        self._add_page("Dashboard", DashboardPage(settings))
-        self._add_page("Devices", DevicesPage())
+        self.dashboard = DashboardPage(settings)
+        self.devices_page = DevicesPage()
+        self._add_page("Dashboard", self.dashboard)
+        self._add_page("Devices", self.devices_page)
         self._add_page("Backup History", HistoryPage())
         self._add_page("Settings", SettingsPage(settings))
         self._add_page("About", AboutPage(app_version))
 
         first = self._nav_group.buttons()[0]
         first.setChecked(True)
+
+        if discovery is not None:
+            discovery.announcing_changed.connect(self.dashboard.on_announcing_changed)
+            discovery.device_found.connect(self._on_device_found)
+            discovery.device_lost.connect(self._on_device_lost)
+
+    # -- Discovery ------------------------------------------------------
+
+    def _on_device_found(self, device: DiscoveredDevice) -> None:
+        self._network_devices.add(device.service_name)
+        self.devices_page.on_device_found(device)
+        self.dashboard.on_network_count_changed(len(self._network_devices))
+
+    def _on_device_lost(self, service_name: str) -> None:
+        self._network_devices.discard(service_name)
+        self.devices_page.on_device_lost(service_name)
+        self.dashboard.on_network_count_changed(len(self._network_devices))
 
     def _build_sidebar(self) -> QWidget:
         sidebar = QWidget(objectName="sidebar")

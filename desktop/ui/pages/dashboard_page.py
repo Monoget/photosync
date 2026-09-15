@@ -14,13 +14,12 @@ class DashboardPage(BasePage):
         self._settings = settings
 
         device_card = Card("Connected Device")
-        no_device = QLabel("No device paired yet")
-        hint = QLabel("Install PhotoSync on your Android phone and pair it "
-                      "from the Devices page to start backing up photos.")
-        hint.setProperty("class", "muted")
-        hint.setWordWrap(True)
-        device_card.add(no_device)
-        device_card.add(hint)
+        self.device_status = QLabel("No device paired yet")
+        self.network_status = QLabel("Searching for devices on your Wi-Fi network…")
+        self.network_status.setProperty("class", "muted")
+        self.network_status.setWordWrap(True)
+        device_card.add(self.device_status)
+        device_card.add(self.network_status)
         self.body.addWidget(device_card)
 
         backup_card = Card("Backup")
@@ -48,3 +47,27 @@ class DashboardPage(BasePage):
         self.body.addWidget(last_card)
 
         self.finish()
+        self._network_count = 0
+
+    # -- Slots (connected to DiscoveryService) --------------------------
+
+    def on_announcing_changed(self, announcing: bool) -> None:
+        if not announcing:
+            self.network_status.setText(
+                "Discovery is unavailable — check your network connection."
+            )
+
+    def on_network_count_changed(self, count: int) -> None:
+        self._network_count = count
+        if count == 0:
+            self.network_status.setText(
+                "Searching for devices on your Wi-Fi network…"
+            )
+        elif count == 1:
+            self.network_status.setText(
+                "1 device on your network — pair it from the Devices page."
+            )
+        else:
+            self.network_status.setText(
+                f"{count} devices on your network — pair one from the Devices page."
+            )

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 
 from infrastructure.configuration.paths import AppPaths
 from infrastructure.configuration.settings_store import SettingsStore
+from infrastructure.discovery.service import DiscoveryService
 from infrastructure.logging_setup import configure_logging
 from ui.dialogs.setup_wizard import SetupWizard
 from ui.styles.theme import Theme, apply_theme
@@ -45,7 +46,12 @@ def run(argv: list[str]) -> int:
             log.info("Setup cancelled; exiting")
             return 0
 
-    window = MainWindow(app_version=APP_VERSION, settings=settings)
+    discovery = DiscoveryService(app_version=APP_VERSION)
+    window = MainWindow(
+        app_version=APP_VERSION, settings=settings, discovery=discovery
+    )
     window.show()
+    discovery.start()
+    app.aboutToQuit.connect(discovery.stop)
 
     return app.exec()

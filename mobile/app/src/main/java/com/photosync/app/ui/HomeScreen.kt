@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -24,18 +26,22 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.photosync.app.discovery.DiscoveredPc
 
 /**
- * Phase 1 static shell of the main screen (spec section 18).
- * State is hardcoded to the honest "nothing configured yet" case;
- * a ViewModel replaces it when permissions/discovery arrive.
+ * Main screen (spec section 18). Phase 3: live PC discovery status;
+ * backup stats stay placeholders until MediaStore sync arrives.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     Scaffold(
         topBar = { TopAppBar(title = { Text("PhotoSync") }) },
     ) { padding ->
@@ -47,7 +53,7 @@ fun HomeScreen() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ConnectionCard()
+            ConnectionCard(state)
             AutoBackupCard()
             StatsCard()
             Button(
@@ -67,7 +73,7 @@ fun HomeScreen() {
 }
 
 @Composable
-private fun ConnectionCard() {
+private fun ConnectionCard(state: HomeUiState) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -79,19 +85,54 @@ private fun ConnectionCard() {
                 Spacer(Modifier.size(8.dp))
                 Text("This Phone", style = MaterialTheme.typography.titleMedium)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.WifiOff,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            when {
+                state.pcs.isNotEmpty() -> state.pcs.forEach { PcRow(it) }
+                state.searching -> StatusRow(
+                    icon = Icons.Default.Wifi,
+                    text = "Searching for your Windows PC…",
                 )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    "Not connected to a Windows PC",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                else -> StatusRow(
+                    icon = Icons.Default.WifiOff,
+                    text = "Not connected to a Windows PC",
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PcRow(pc: DiscoveredPc) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Default.Computer,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.size(8.dp))
+        Column {
+            Text(pc.displayName)
+            Text(
+                "Found on your Wi-Fi • Not paired",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

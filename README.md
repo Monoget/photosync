@@ -52,5 +52,12 @@ meant for version control.
   destination change in Settings. Registration is stored locally marked
   `pending` until the registration API exists (spec §32: telemetry must
   never block backup).
-- Next: Phase 3 (mDNS/NSD discovery). See
+- Phase 3 (Discovery) — **done.** Desktop announces `_photosync._tcp` via
+  zeroconf and browses for phones (`_photosync-m._tcp`); Android registers
+  itself via NSD and browses for PCs, with sequential resolve queuing. Both
+  UIs show live network status: the desktop Devices page lists discovered
+  phones and the dashboard shows a device count; the Android home screen
+  shows "Searching…" / discovered PC. Verified with a real mDNS loopback
+  integration test.
+- Next: Phase 4 (pairing: QR/code, device identity, trust storage). See
   `instruction/PhotoSync_Claude_Code_Prompt.md`, section 36.
