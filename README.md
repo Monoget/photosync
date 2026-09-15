@@ -80,6 +80,14 @@ meant for version control.
   photos/transfers rows, and skips already-received (device, media id)
   pairs as duplicates. Dashboard shows live photo count/bytes/last-backup;
   Backup History lists transfers.
-- Next: Phase 6 (incremental sync: phone-side backup state + a sync-check
-  endpoint so only new photos transfer). See
-  `instruction/PhotoSync_Claude_Code_Prompt.md`, section 36.
+- Phase 6 (Incremental Sync) — **done.** The phone keeps per-PC backup
+  state in its own SQLite database and reconciles it with the PC through
+  `POST /api/v1/sync/check` (batched media-id lists) before uploading, so
+  only genuinely new photos cross the wire; if the check fails it falls
+  back to uploading and lets the PC dedup. The receiver also dedups by
+  content hash + size (spec §14): the same bytes under a new MediaStore id
+  are recorded as an alias without writing a second file, and disk stats
+  count distinct files. Phone stats (Photos / Backed Up / Pending) are now
+  persistent.
+- Next: Phase 7 (reliability: resume, retry, partial files, reconnection).
+  See `instruction/PhotoSync_Claude_Code_Prompt.md`, section 36.

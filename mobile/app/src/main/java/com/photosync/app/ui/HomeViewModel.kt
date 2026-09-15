@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.photosync.app.backup.BackupStateDb
 import com.photosync.app.discovery.DiscoveredPc
 import com.photosync.app.discovery.PcDiscovery
 import com.photosync.app.media.GalleryScanner
@@ -40,6 +41,7 @@ data class HomeUiState(
     val pairingStatus: PairingStatus = PairingStatus.IDLE,
     val hasPermission: Boolean = false,
     val photoCount: Int? = null,
+    val backedUpCount: Int? = null,
     val backup: BackupProgress = BackupProgress(),
     val lastBackupMs: Long? = null,
 ) {
@@ -62,12 +64,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val client = PairingClient()
     private val scanner = GalleryScanner(application)
     private val uploader = UploadClient(application)
+    private val stateDb = BackupStateDb(application)
 
     private val pairedPc = MutableStateFlow(trustStore.trustedPc)
     private val connectedPc = MutableStateFlow<DiscoveredPc?>(null)
     private val pairingStatus = MutableStateFlow(PairingStatus.IDLE)
     private val hasPermission = MutableStateFlow(checkPermission())
     private val photoCount = MutableStateFlow<Int?>(null)
+    private val backedUpCount = MutableStateFlow<Int?>(null)
     private val backup = MutableStateFlow(BackupProgress())
     private val lastBackupMs = MutableStateFlow(trustStore.lastBackupMs)
 
@@ -75,9 +79,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         combine(
             combine(discovery.searching, discovery.pcs, pairedPc) { s, p, t -> Triple(s, p, t) },
             combine(connectedPc, pairingStatus) { c, ps -> c to ps },
-            combine(hasPermission, photoCount) { hp, pc -> hp to pc },
+            combine(hasPermission, photoCount, backedUpCount) { hp, pc, bc ->
+                Triple(hp, pc, bc)
+            },
             combine(backup, lastBackupMs) { b, l -> b to l },
-        ) { (searching, pcs, paired), (connected, status), (perm, count), (bk, last) ->
+        ) { (searching, pcs, paired), (connected, status), (perm, count, backed), (bk, last) ->
             HomeUiState(
                 searching = searching,
                 pcs = pcs,
@@ -86,6 +92,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 pairingStatus = status,
                 hasPermission = perm,
                 photoCount = count,
+                backedUpCount = backed,
                 backup = bk,
                 lastBackupMs = last,
             )
@@ -98,6 +105,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 .collect { (pcs, paired) -> connectedPc.value = verify(pcs, paired) }
         }
         if (hasPermission.value) refreshGallery()
+        refreshBackedUpCount()
     }
 
     private fun checkPermission(): Boolean =
@@ -113,7 +121,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun refreshGallery() {
         viewModelScope.launch {
             runCatching { photoCount.value = scanner.scan().size }
+            refreshBackedUpCount()
         }
+    }
+
+    private fun refreshBackedUpCount() {
+        val pcId = pairedPc.value?.pcId ?: return
+        backedUpCount.value = stateDb.count(pcId)
     }
 
     private suspend fun verify(pcs: List<DiscoveredPc>, paired: TrustedPc?): DiscoveredPc? {
@@ -131,6 +145,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     trustStore.trustedPc = trusted
                     pairedPc.value = trusted
                     pairingStatus.value = PairingStatus.IDLE
+                    refreshBackedUpCount()
                 }
                 .onFailure { error ->
                     pairingStatus.value =
@@ -153,17 +168,52 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (backup.value.running || !hasPermission.value) return
 
         viewModelScope.launch {
+            backup.value = BackupProgress(running = true)
             val photos = runCatching { scanner.scan() }.getOrDefault(emptyList())
             photoCount.value = photos.size
-            backup.value = BackupProgress(running = true, total = photos.size)
 
+            // 1. Skip everything this phone already knows is backed up.
+            val known = stateDb.backedUpIds(trusted.pcId)
+            var candidates = photos.filter { it.mediaId !in known }
+
+            // 2. Reconcile the rest with the PC's backup state in batches;
+            //    ids the PC already has are marked locally and skipped.
+            //    If a check fails we fall back to uploading (the PC dedups).
+            val needed = mutableSetOf<Long>()
+            var checksFailed = false
+            for (batch in candidates.chunked(500)) {
+                uploader.syncCheck(pc.host, pc.port, trusted, batch.map { it.mediaId })
+                    .onSuccess { neededIds ->
+                        needed += neededIds
+                        stateDb.markBackedUp(
+                            trusted.pcId,
+                            batch.map { it.mediaId }.filter { it !in neededIds },
+                        )
+                    }
+                    .onFailure {
+                        checksFailed = true
+                        needed += batch.map { it.mediaId }
+                    }
+            }
+            if (!checksFailed) {
+                candidates = candidates.filter { it.mediaId in needed }
+            }
+            refreshBackedUpCount()
+
+            backup.value = backup.value.copy(total = candidates.size)
             var uploaded = 0
             var duplicates = 0
             var failed = 0
-            for ((index, photo) in photos.withIndex()) {
+            for ((index, photo) in candidates.withIndex()) {
                 when (uploader.upload(pc.host, pc.port, trusted, photo)) {
-                    is UploadResult.Uploaded -> uploaded++
-                    is UploadResult.Duplicate -> duplicates++
+                    is UploadResult.Uploaded -> {
+                        uploaded++
+                        stateDb.markBackedUp(trusted.pcId, listOf(photo.mediaId))
+                    }
+                    is UploadResult.Duplicate -> {
+                        duplicates++
+                        stateDb.markBackedUp(trusted.pcId, listOf(photo.mediaId))
+                    }
                     is UploadResult.Failed -> failed++  // one bad file never stops the run
                 }
                 backup.value = backup.value.copy(
@@ -174,11 +224,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
 
-            if (photos.isNotEmpty() && failed < photos.size) {
+            if (failed == 0 || uploaded > 0 || duplicates > 0) {
                 val now = System.currentTimeMillis()
                 trustStore.lastBackupMs = now
                 lastBackupMs.value = now
             }
+            refreshBackedUpCount()
             backup.value = backup.value.copy(running = false)
         }
     }

@@ -268,8 +268,8 @@ private fun PermissionCard(onRequest: () -> Unit) {
 
 @Composable
 private fun StatsCard(state: HomeUiState) {
-    val backedUp = state.backup.uploaded + state.backup.duplicates
     val total = state.photoCount
+    val backedUp = state.backedUpCount
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier
@@ -278,10 +278,10 @@ private fun StatsCard(state: HomeUiState) {
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             Stat("Photos", total?.toString() ?: "—")
-            Stat("Backed Up", if (state.backup.done > 0) backedUp.toString() else "—")
+            Stat("Backed Up", backedUp?.toString() ?: "—")
             Stat(
                 "Pending",
-                if (total != null && state.backup.done > 0) {
+                if (total != null && backedUp != null) {
                     (total - backedUp).coerceAtLeast(0).toString()
                 } else "—",
             )

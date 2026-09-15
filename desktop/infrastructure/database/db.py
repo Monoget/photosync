@@ -125,16 +125,50 @@ class PhotoStore:
                 (device_id, media_id, now, now, file_size),
             )
 
-    def completed_count(self) -> int:
+    def filter_needed(self, device_id: str, media_ids: list[str]) -> list[str]:
+        """Return the subset of media_ids not yet completed for this device."""
+        needed: list[str] = []
+        with _connect(self._db_path) as conn:
+            for start in range(0, len(media_ids), 500):
+                chunk = media_ids[start:start + 500]
+                placeholders = ",".join("?" * len(chunk))
+                have = {
+                    row[0]
+                    for row in conn.execute(
+                        f"SELECT media_id FROM photos WHERE device_id = ?"
+                        f" AND status = 'completed' AND media_id IN ({placeholders})",
+                        (device_id, *chunk),
+                    )
+                }
+                needed.extend(m for m in chunk if m not in have)
+        return needed
+
+    def find_by_hash(
+        self, device_id: str, content_hash: str, file_size: int
+    ) -> sqlite3.Row | None:
+        """A completed photo with identical content (spec §14 dedup)."""
         with _connect(self._db_path) as conn:
             return conn.execute(
-                "SELECT COUNT(*) FROM photos WHERE status = 'completed'"
+                "SELECT * FROM photos WHERE device_id = ? AND content_hash = ?"
+                " AND file_size = ? AND status = 'completed' LIMIT 1",
+                (device_id, content_hash, file_size),
+            ).fetchone()
+
+    def completed_count(self) -> int:
+        # Distinct files on disk — hash-alias records don't double count.
+        with _connect(self._db_path) as conn:
+            return conn.execute(
+                "SELECT COUNT(DISTINCT destination_path) FROM photos"
+                " WHERE status = 'completed'"
             ).fetchone()[0]
 
     def total_bytes(self) -> int:
         with _connect(self._db_path) as conn:
             value = conn.execute(
-                "SELECT SUM(file_size) FROM photos WHERE status = 'completed'"
+                "SELECT SUM(file_size) FROM ("
+                " SELECT destination_path, MAX(file_size) AS file_size"
+                " FROM photos WHERE status = 'completed'"
+                " GROUP BY destination_path)"
             ).fetchone()[0]
             return value or 0
 

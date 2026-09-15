@@ -6,6 +6,7 @@ import com.photosync.app.net.PinnedHttp
 import com.photosync.app.pairing.TrustedPc
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.io.InputStream
@@ -75,6 +76,43 @@ class UploadClient(context: Context) {
             UploadResult.Failed(e.message ?: "network error")
         } catch (e: SecurityException) {
             UploadResult.Failed("permission denied for ${photo.displayName}")
+        }
+    }
+
+    /**
+     * Ask the PC which of these media ids still need transferring
+     * (spec §13 step 3: compare with Windows backup state).
+     */
+    suspend fun syncCheck(
+        host: String,
+        port: Int,
+        pc: TrustedPc,
+        mediaIds: List<Long>,
+    ): Result<Set<Long>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val (conn, _) = PinnedHttp.open(host, port, "/api/v1/sync/check", pc.fingerprint)
+            try {
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                conn.setRequestProperty("Authorization", "Bearer ${pc.token}")
+                conn.setRequestProperty("Content-Type", "application/json")
+                val body = JSONObject()
+                    .put("media_ids", JSONArray(mediaIds.map { it.toString() }))
+                    .toString()
+                conn.outputStream.use { it.write(body.toByteArray()) }
+                if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                    throw IOException("sync check failed: HTTP ${conn.responseCode}")
+                }
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                val needed = json.getJSONArray("needed")
+                buildSet {
+                    for (i in 0 until needed.length()) {
+                        needed.getString(i).toLongOrNull()?.let { add(it) }
+                    }
+                }
+            } finally {
+                conn.disconnect()
+            }
         }
     }
 

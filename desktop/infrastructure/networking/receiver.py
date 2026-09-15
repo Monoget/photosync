@@ -182,6 +182,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/v1/upload":
             self._handle_upload()
             return
+        if self.path == "/api/v1/sync/check":
+            self._handle_sync_check()
+            return
         if self.path != "/api/v1/pair":
             self._send_json(404, {"error": "not found"})
             return
@@ -211,6 +214,29 @@ class _Handler(BaseHTTPRequestHandler):
                 "protocol": PROTOCOL_VERSION,
             },
         )
+
+    # -- Sync -----------------------------------------------------------
+
+    def _handle_sync_check(self) -> None:
+        """Which of the phone's media ids still need transferring?"""
+        srv = self.server
+        device = self._bearer_device()
+        if device is None:
+            self._send_json(401, {"error": "unauthorized"})
+            return
+        if srv.photo_store is None:  # type: ignore[attr-defined]
+            self._send_json(409, {"error": "not ready"})
+            return
+        body = self._read_json()
+        if body is None or not isinstance(body.get("media_ids"), list):
+            self._send_json(400, {"error": "invalid request"})
+            return
+        media_ids = [str(m)[:64] for m in body["media_ids"][:1000]]
+        needed = srv.photo_store.filter_needed(  # type: ignore[attr-defined]
+            device["device_id"], media_ids
+        )
+        srv.device_store.touch_last_seen(device["device_id"])  # type: ignore[attr-defined]
+        self._send_json(200, {"needed": needed})
 
     # -- Upload ---------------------------------------------------------
 
@@ -262,6 +288,25 @@ class _Handler(BaseHTTPRequestHandler):
         device_id = device["device_id"]
         if srv.photo_store.completed_exists(device_id, media_id):  # type: ignore[attr-defined]
             self._discard_body(length)
+            self._send_json(200, {"ok": True, "duplicate": True})
+            return
+
+        # Same bytes under a new MediaStore id (re-index, restored backup…):
+        # record the alias without writing a second copy (spec §14).
+        same = srv.photo_store.find_by_hash(  # type: ignore[attr-defined]
+            device_id, expected_hash, length
+        )
+        if same is not None:
+            self._discard_body(length)
+            srv.photo_store.record_completed(  # type: ignore[attr-defined]
+                device_id=device_id,
+                media_id=media_id,
+                filename=same["filename"],
+                file_size=length,
+                date_taken=same["date_taken"],
+                content_hash=expected_hash,
+                destination_path=same["destination_path"],
+            )
             self._send_json(200, {"ok": True, "duplicate": True})
             return
 
