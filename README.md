@@ -69,6 +69,17 @@ meant for version control.
   rate-limited (5 attempts), the receiver serves private/loopback addresses
   only, and the phone re-verifies the pairing with an authenticated ping
   whenever the network view changes — "Connected to <PC>" is live status.
-- Next: Phase 5 (basic transfer: MediaStore scan, transfer queue, Windows
-  receiver endpoint). See `instruction/PhotoSync_Claude_Code_Prompt.md`,
-  section 36.
+- Phase 5 (Basic Transfer) — **done.** Android: gallery permission flow
+  (READ_MEDIA_IMAGES on 13+, READ_EXTERNAL_STORAGE below), MediaStore
+  scanner, and a streaming upload client (SHA-256 computed first, then a
+  fixed-length streamed POST over pinned TLS); "Backup Now" runs the whole
+  gallery sequentially with live progress, and one bad file never stops the
+  run. Desktop: authenticated `/api/v1/upload` streams to a `.part` temp
+  file, verifies size + SHA-256, atomically renames into
+  `<dest>/YYYY/MM/` (sanitized filenames, uniquified collisions), records
+  photos/transfers rows, and skips already-received (device, media id)
+  pairs as duplicates. Dashboard shows live photo count/bytes/last-backup;
+  Backup History lists transfers.
+- Next: Phase 6 (incremental sync: phone-side backup state + a sync-check
+  endpoint so only new photos transfer). See
+  `instruction/PhotoSync_Claude_Code_Prompt.md`, section 36.

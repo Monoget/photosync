@@ -17,8 +17,11 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,14 +47,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.photosync.app.discovery.DiscoveredPc
 
 /**
- * Main screen (spec section 18). Phase 4: discovery plus code-based
- * pairing; backup stats stay placeholders until MediaStore sync arrives.
+ * Main screen (spec section 18). Phase 5: gallery permission flow,
+ * MediaStore stats, and working "Backup Now" with progress.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var pairTarget by remember { mutableStateOf<DiscoveredPc?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { viewModel.onPermissionResult() }
 
     pairTarget?.let { target ->
         PairDialog(
@@ -81,24 +87,26 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ConnectionCard(state, onPair = { pairTarget = it })
+            if (!state.hasPermission) {
+                PermissionCard(
+                    onRequest = {
+                        permissionLauncher.launch(HomeViewModel.REQUIRED_PERMISSION)
+                    },
+                )
+            }
             AutoBackupCard()
-            StatsCard()
+            StatsCard(state)
+            if (state.backup.running) {
+                BackupProgressCard(state.backup)
+            }
             Button(
-                onClick = { /* enabled once sync exists */ },
-                enabled = false,
+                onClick = { viewModel.backupNow() },
+                enabled = state.connected && state.hasPermission && !state.backup.running,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Backup Now")
+                Text(if (state.backup.running) "Backing Up…" else "Backup Now")
             }
-            Text(
-                if (state.pairedPc == null) {
-                    "Pair this phone with your Windows PC to enable backup."
-                } else {
-                    "Photo backup arrives in an upcoming build."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            LastBackupText(state)
         }
     }
 }
@@ -243,7 +251,25 @@ private fun AutoBackupCard() {
 }
 
 @Composable
-private fun StatsCard() {
+private fun PermissionCard(onRequest: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Photo access needed", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "PhotoSync needs access to your photos to back them up to " +
+                    "your PC. Photos are only ever sent to the PC you paired.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(onClick = onRequest) { Text("Allow Access") }
+        }
+    }
+}
+
+@Composable
+private fun StatsCard(state: HomeUiState) {
+    val backedUp = state.backup.uploaded + state.backup.duplicates
+    val total = state.photoCount
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier
@@ -251,11 +277,63 @@ private fun StatsCard() {
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            Stat("Photos", "—")
-            Stat("Backed Up", "—")
-            Stat("Pending", "—")
+            Stat("Photos", total?.toString() ?: "—")
+            Stat("Backed Up", if (state.backup.done > 0) backedUp.toString() else "—")
+            Stat(
+                "Pending",
+                if (total != null && state.backup.done > 0) {
+                    (total - backedUp).coerceAtLeast(0).toString()
+                } else "—",
+            )
         }
     }
+}
+
+@Composable
+private fun BackupProgressCard(progress: BackupProgress) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Backing up ${progress.done} / ${progress.total}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            LinearProgressIndicator(
+                progress = {
+                    if (progress.total == 0) 0f
+                    else progress.done.toFloat() / progress.total
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (progress.failed > 0) {
+                Text(
+                    "${progress.failed} file(s) could not be transferred",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LastBackupText(state: HomeUiState) {
+    val text = when {
+        state.pairedPc == null -> "Pair this phone with your Windows PC to enable backup."
+        state.lastBackupMs != null -> {
+            val formatted = remember(state.lastBackupMs) {
+                java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT,
+                ).format(java.util.Date(state.lastBackupMs))
+            }
+            "Last backup: $formatted"
+        }
+        else -> "No backups yet — tap Backup Now when connected."
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

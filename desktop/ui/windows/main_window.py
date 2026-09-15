@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from core.models.device import DiscoveredDevice
 from infrastructure.configuration.settings_store import SettingsStore
-from infrastructure.database.db import DeviceStore
+from infrastructure.database.db import DeviceStore, PhotoStore
 from infrastructure.discovery.service import DiscoveryService
 from infrastructure.networking.receiver import ReceiverServer
 from ui.pages.about_page import AboutPage
@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
         discovery: DiscoveryService | None = None,
         receiver: ReceiverServer | None = None,
         device_store: DeviceStore | None = None,
+        photo_store: PhotoStore | None = None,
     ) -> None:
         super().__init__()
         self._discovery = discovery
@@ -52,11 +53,12 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._pages, stretch=1)
         self.setCentralWidget(root)
 
-        self.dashboard = DashboardPage(settings)
+        self.dashboard = DashboardPage(settings, photo_store)
         self.devices_page = DevicesPage(receiver=receiver, device_store=device_store)
+        self.history_page = HistoryPage(photo_store)
         self._add_page("Dashboard", self.dashboard)
         self._add_page("Devices", self.devices_page)
-        self._add_page("Backup History", HistoryPage())
+        self._add_page("Backup History", self.history_page)
         self._add_page("Settings", SettingsPage(settings))
         self._add_page("About", AboutPage(app_version))
 
@@ -67,6 +69,13 @@ class MainWindow(QMainWindow):
             discovery.announcing_changed.connect(self.dashboard.on_announcing_changed)
             discovery.device_found.connect(self._on_device_found)
             discovery.device_lost.connect(self._on_device_lost)
+        if receiver is not None:
+            receiver.transfer_events.photo_received.connect(
+                self.dashboard.on_photo_received
+            )
+            receiver.transfer_events.photo_received.connect(
+                self.history_page.on_photo_received
+            )
 
     # -- Discovery ------------------------------------------------------
 

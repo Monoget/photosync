@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication
 
 from infrastructure.configuration.paths import AppPaths
 from infrastructure.configuration.settings_store import SettingsStore
-from infrastructure.database.db import DeviceStore, migrate
+from infrastructure.database.db import DeviceStore, PhotoStore, migrate
 from infrastructure.discovery.service import DiscoveryService
 from infrastructure.logging_setup import configure_logging
 from infrastructure.networking.receiver import ReceiverServer
@@ -51,12 +51,15 @@ def run(argv: list[str]) -> int:
 
     migrate(paths.database_path)
     device_store = DeviceStore(paths.database_path)
+    photo_store = PhotoStore(paths.database_path)
     identity = DeviceIdentity.load_or_create(paths.data_dir)
     receiver = ReceiverServer(
         identity=identity,
         device_store=device_store,
         pc_id=settings.installation_id,
         app_version=APP_VERSION,
+        photo_store=photo_store,
+        settings=settings,
     )
 
     discovery = DiscoveryService(app_version=APP_VERSION)
@@ -66,6 +69,7 @@ def run(argv: list[str]) -> int:
         discovery=discovery,
         receiver=receiver,
         device_store=device_store,
+        photo_store=photo_store,
     )
     window.show()
 

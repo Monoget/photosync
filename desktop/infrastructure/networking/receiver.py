@@ -1,9 +1,12 @@
-"""HTTPS receiver server: pairing and authenticated ping (Phase 4).
+"""HTTPS receiver server: pairing, ping, and photo upload (Phases 4-5).
 
-The transfer endpoints land here in Phase 5. TLS uses this PC's
-persistent self-signed identity; phones pin the certificate fingerprint
-at pairing time. Only private/loopback source addresses are served —
-this is a LAN-only service by design (spec §12).
+TLS uses this PC's persistent self-signed identity; phones pin the
+certificate fingerprint at pairing time. Only private/loopback source
+addresses are served — this is a LAN-only service by design (spec §12).
+
+Uploads stream to a temporary ``.part`` file, are verified against the
+client's SHA-256 before an atomic rename into ``<dest>/YYYY/MM/`` (spec
+§15-16), and are only then recorded as completed.
 """
 from __future__ import annotations
 
@@ -15,20 +18,28 @@ import logging
 import secrets
 import socket
 import threading
+import urllib.parse
+import uuid
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import ssl
 
 from PySide6.QtCore import QObject, Signal
 
 from core.protocol.constants import PROTOCOL_VERSION
-from infrastructure.database.db import DeviceStore
+from infrastructure.configuration.settings_store import SettingsStore
+from infrastructure.database.db import DeviceStore, PhotoStore
 from infrastructure.security.identity import DeviceIdentity
+from infrastructure.storage.organizer import dest_path_for, sanitize_filename
 
 log = logging.getLogger(__name__)
 
 MAX_BODY_BYTES = 64 * 1024
 MAX_PAIR_ATTEMPTS = 5
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB per file
+UPLOAD_CHUNK = 256 * 1024
 
 
 def is_local_address(address: str) -> bool:
@@ -89,6 +100,12 @@ class PairingManager(QObject):
         log.info("Paired device %s (%s)", name, device_id)
         self.device_paired.emit(name)
         return token
+
+
+class TransferEvents(QObject):
+    """UI notifications for received photos (emitted from worker threads)."""
+
+    photo_received = Signal(str)  # filename
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -162,6 +179,9 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         if self._reject_non_local():
             return
+        if self.path == "/api/v1/upload":
+            self._handle_upload()
+            return
         if self.path != "/api/v1/pair":
             self._send_json(404, {"error": "not found"})
             return
@@ -192,6 +212,111 @@ class _Handler(BaseHTTPRequestHandler):
             },
         )
 
+    # -- Upload ---------------------------------------------------------
+
+    def _discard_body(self, length: int) -> None:
+        remaining = length
+        while remaining > 0:
+            chunk = self.rfile.read(min(UPLOAD_CHUNK, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
+    def _handle_upload(self) -> None:
+        srv = self.server
+        device = self._bearer_device()
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+
+        def fail(status: int, error: str, discard: bool = True) -> None:
+            if discard:
+                self._discard_body(length)
+            self._send_json(status, {"error": error})
+
+        if device is None:
+            return fail(401, "unauthorized")
+        if length <= 0 or length > MAX_UPLOAD_BYTES:
+            return fail(400, "invalid content length", discard=False)
+
+        settings = srv.settings  # type: ignore[attr-defined]
+        dest_root = settings.destination_dir if settings else None
+        if dest_root is None or srv.photo_store is None:  # type: ignore[attr-defined]
+            return fail(409, "no destination folder configured")
+
+        media_id = self.headers.get("X-PhotoSync-Media-Id", "").strip()[:64]
+        raw_name = self.headers.get("X-PhotoSync-Filename", "")
+        filename = sanitize_filename(urllib.parse.unquote(raw_name))
+        expected_hash = self.headers.get("X-PhotoSync-Sha256", "").strip().lower()
+        if not media_id or len(expected_hash) != 64:
+            return fail(400, "missing media id or sha256")
+
+        taken_at = None
+        taken_raw = self.headers.get("X-PhotoSync-Date-Taken", "")
+        try:
+            taken_at = datetime.fromtimestamp(int(taken_raw) / 1000, tz=timezone.utc)
+        except (ValueError, OSError, OverflowError):
+            pass
+
+        device_id = device["device_id"]
+        if srv.photo_store.completed_exists(device_id, media_id):  # type: ignore[attr-defined]
+            self._discard_body(length)
+            self._send_json(200, {"ok": True, "duplicate": True})
+            return
+
+        tmp_dir = Path(dest_root) / ".photosync-tmp"
+        try:
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            return fail(500, f"destination unavailable: {exc.strerror or exc}")
+
+        part = tmp_dir / f"{uuid.uuid4().hex}.part"
+        digest = hashlib.sha256()
+        received = 0
+        try:
+            with open(part, "wb") as out:
+                while received < length:
+                    chunk = self.rfile.read(min(UPLOAD_CHUNK, length - received))
+                    if not chunk:
+                        break
+                    out.write(chunk)
+                    digest.update(chunk)
+                    received += len(chunk)
+
+            if received != length:
+                part.unlink(missing_ok=True)
+                # connection is broken; no clean response possible
+                self._send_json(400, {"error": "incomplete upload"})
+                return
+            if digest.hexdigest() != expected_hash:
+                part.unlink(missing_ok=True)
+                self._send_json(400, {"error": "hash mismatch"})
+                return
+
+            final = dest_path_for(Path(dest_root), filename, taken_at)
+            final.parent.mkdir(parents=True, exist_ok=True)
+            part.replace(final)
+        except OSError as exc:
+            part.unlink(missing_ok=True)
+            log.exception("Upload failed for %s", filename)
+            self._send_json(500, {"error": f"write failed: {exc.strerror or exc}"})
+            return
+
+        srv.photo_store.record_completed(  # type: ignore[attr-defined]
+            device_id=device_id,
+            media_id=media_id,
+            filename=final.name,
+            file_size=length,
+            date_taken=taken_at.isoformat() if taken_at else None,
+            content_hash=expected_hash,
+            destination_path=str(final),
+        )
+        srv.device_store.touch_last_seen(device_id)  # type: ignore[attr-defined]
+        srv.transfer_events.photo_received.emit(final.name)  # type: ignore[attr-defined]
+        log.info("Received %s (%d bytes) from %s", final.name, length, device["name"])
+        self._send_json(200, {"ok": True, "duplicate": False})
+
     def log_message(self, format: str, *args) -> None:  # noqa: A002
         log.debug("receiver %s %s", self.client_address[0], format % args)
 
@@ -205,14 +330,20 @@ class ReceiverServer:
         device_store: DeviceStore,
         pc_id: str,
         app_version: str,
+        photo_store: PhotoStore | None = None,
+        settings: SettingsStore | None = None,
     ) -> None:
         self._identity = identity
         self.pairing = PairingManager(device_store)
+        self.transfer_events = TransferEvents()
         self._httpd = ThreadingHTTPServer(("", 0), _Handler)
         self._httpd.daemon_threads = True
         # attributes the handler reads
         self._httpd.device_store = device_store  # type: ignore[attr-defined]
+        self._httpd.photo_store = photo_store  # type: ignore[attr-defined]
+        self._httpd.settings = settings  # type: ignore[attr-defined]
         self._httpd.pairing = self.pairing  # type: ignore[attr-defined]
+        self._httpd.transfer_events = self.transfer_events  # type: ignore[attr-defined]
         self._httpd.pc_id = pc_id  # type: ignore[attr-defined]
         self._httpd.app_version = app_version  # type: ignore[attr-defined]
 

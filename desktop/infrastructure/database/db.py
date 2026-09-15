@@ -71,6 +71,92 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+class PhotoStore:
+    """Backed-up photo records. Thread-safe (connection per call)."""
+
+    def __init__(self, db_path: Path) -> None:
+        self._db_path = db_path
+
+    def completed_exists(self, device_id: str, media_id: str) -> bool:
+        with _connect(self._db_path) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM photos WHERE device_id = ? AND media_id = ?"
+                " AND status = 'completed'",
+                (device_id, media_id),
+            ).fetchone()
+            return row is not None
+
+    def record_completed(
+        self,
+        device_id: str,
+        media_id: str,
+        filename: str,
+        file_size: int,
+        date_taken: str | None,
+        content_hash: str,
+        destination_path: str,
+    ) -> None:
+        now = _utcnow()
+        with _connect(self._db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO photos (device_id, media_id, filename, file_size,
+                    date_taken, content_hash, destination_path, status,
+                    created_at, completed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
+                ON CONFLICT(device_id, media_id) DO UPDATE SET
+                    filename = excluded.filename,
+                    file_size = excluded.file_size,
+                    content_hash = excluded.content_hash,
+                    destination_path = excluded.destination_path,
+                    status = 'completed',
+                    completed_at = excluded.completed_at
+                """,
+                (device_id, media_id, filename, file_size, date_taken,
+                 content_hash, destination_path, now, now),
+            )
+            conn.execute(
+                """
+                INSERT INTO transfers (photo_id, started_at, completed_at,
+                    bytes_transferred, status)
+                VALUES ((SELECT id FROM photos WHERE device_id = ? AND media_id = ?),
+                        ?, ?, ?, 'completed')
+                """,
+                (device_id, media_id, now, now, file_size),
+            )
+
+    def completed_count(self) -> int:
+        with _connect(self._db_path) as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM photos WHERE status = 'completed'"
+            ).fetchone()[0]
+
+    def total_bytes(self) -> int:
+        with _connect(self._db_path) as conn:
+            value = conn.execute(
+                "SELECT SUM(file_size) FROM photos WHERE status = 'completed'"
+            ).fetchone()[0]
+            return value or 0
+
+    def last_completed_at(self) -> str | None:
+        with _connect(self._db_path) as conn:
+            return conn.execute(
+                "SELECT MAX(completed_at) FROM photos WHERE status = 'completed'"
+            ).fetchone()[0]
+
+    def recent(self, limit: int = 100) -> list[sqlite3.Row]:
+        with _connect(self._db_path) as conn:
+            return conn.execute(
+                """
+                SELECT p.*, d.name AS device_name
+                FROM photos p LEFT JOIN devices d ON d.device_id = p.device_id
+                WHERE p.status = 'completed'
+                ORDER BY p.completed_at DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
+
 class DeviceStore:
     """Trusted-device persistence. Thread-safe (connection per call)."""
 

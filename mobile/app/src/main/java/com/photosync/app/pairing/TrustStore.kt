@@ -29,6 +29,13 @@ class TrustStore(context: Context) {
         get() = prefs.getString(KEY_DEVICE_ID, null) ?: UUID.randomUUID().toString()
             .also { prefs.edit { putString(KEY_DEVICE_ID, it) } }
 
+    /** Epoch millis of the last successful backup run, or null. */
+    var lastBackupMs: Long?
+        get() = prefs.getLong(KEY_LAST_BACKUP, -1L).takeIf { it > 0 }
+        set(value) = prefs.edit {
+            if (value == null) remove(KEY_LAST_BACKUP) else putLong(KEY_LAST_BACKUP, value)
+        }
+
     var trustedPc: TrustedPc?
         get() = prefs.getString(KEY_TRUSTED_PC, null)?.let {
             runCatching {
@@ -60,5 +67,6 @@ class TrustStore(context: Context) {
     private companion object {
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_TRUSTED_PC = "trusted_pc"
+        const val KEY_LAST_BACKUP = "last_backup_ms"
     }
 }
