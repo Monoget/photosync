@@ -37,7 +37,12 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self._discovery = discovery
+        self._settings = settings
         self._network_devices: set[str] = set()
+        # When run-in-background is on, closing hides to the tray instead
+        # of exiting (spec §20). The tray's Exit sets allow_close.
+        self.allow_close = False
+        self.tray_available = False
         self.setWindowTitle("PhotoSync")
         self.setMinimumSize(QSize(960, 640))
 
@@ -88,6 +93,22 @@ class MainWindow(QMainWindow):
         self._network_devices.discard(service_name)
         self.devices_page.on_device_lost(service_name)
         self.dashboard.on_network_count_changed(len(self._network_devices))
+
+    # -- Close behavior -------------------------------------------------
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        run_in_background = bool(
+            self._settings and self._settings.get("run_in_background", True)
+        )
+        if run_in_background and self.tray_available and not self.allow_close:
+            event.ignore()
+            self.hide()
+        else:
+            event.accept()
+            # quit-on-last-window-closed is off (tray keeps the app alive)
+            from PySide6.QtWidgets import QApplication
+
+            QApplication.instance().quit()
 
     def _build_sidebar(self) -> QWidget:
         sidebar = QWidget(objectName="sidebar")

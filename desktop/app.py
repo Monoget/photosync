@@ -16,7 +16,9 @@ from infrastructure.logging_setup import configure_logging
 from infrastructure.networking.receiver import ReceiverServer
 from infrastructure.security.identity import DeviceIdentity
 from ui.dialogs.setup_wizard import SetupWizard
+from ui.resources.icons import app_icon
 from ui.styles.theme import Theme, apply_theme
+from ui.tray import TrayController
 from ui.windows.main_window import MainWindow
 
 APP_NAME = "PhotoSync"
@@ -40,10 +42,12 @@ def run(argv: list[str]) -> int:
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName(ORG_NAME)
 
-    apply_theme(app, Theme.DARK)
-
     settings = SettingsStore(paths.settings_path)
     log.info("Installation ID: %s", settings.installation_id)
+
+    theme = Theme.LIGHT if settings.get("theme") == "light" else Theme.DARK
+    apply_theme(app, theme)
+    app.setWindowIcon(app_icon())
 
     if not settings.setup_complete:
         wizard = SetupWizard(settings)
@@ -73,6 +77,9 @@ def run(argv: list[str]) -> int:
         device_store=device_store,
         photo_store=photo_store,
     )
+    tray = TrayController(app, window, receiver)
+    window.tray_available = tray.tray.isSystemTrayAvailable()
+    app.setQuitOnLastWindowClosed(False)
     window.show()
 
     receiver.start()

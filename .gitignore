@@ -5,7 +5,8 @@ desktop/.venv/
 .pytest_cache/
 build/
 dist/
-*.spec
+installer/output/
+photosync-server.db
 
 # Android / Gradle
 mobile/.gradle/

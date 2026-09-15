@@ -4,8 +4,9 @@ Automatically back up Android photos to a Windows PC over local Wi-Fi.
 
 - `desktop/` — Windows desktop app (Python 3.12, PySide6/Qt 6)
 - `mobile/` — Android app (Kotlin 2.1, Jetpack Compose, AGP 8.11, Gradle 8.13)
-- `tests/` — unit and integration tests
-- `installer/` — PyInstaller + Windows installer assets — pending
+- `server/` — registration/heartbeat/update API + admin dashboard (Flask)
+- `tests/` — unit, integration, and server tests
+- `installer/` — PyInstaller spec, Inno Setup script, build script
 - `instruction/` — product/build specification
 
 ## Run the desktop app (development)
@@ -38,6 +39,32 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 APK output: `mobile\app\build\outputs\apk\debug\app-debug.apk`.
 `mobile/local.properties` is machine-specific (Android SDK path) and not
 meant for version control.
+
+## Build the Windows release
+
+```powershell
+desktop\.venv\Scripts\pip install pyinstaller
+powershell -File installer\build.ps1
+```
+
+This produces `dist\PhotoSync\PhotoSync.exe` and, when Inno Setup's `iscc`
+is on PATH, the installer at `installer\output\PhotoSync-<version>-Setup.exe`.
+Sign the installer (Authenticode) before distribution, record its SHA-256,
+and publish it to the update feed with `server\add_release.py`.
+
+## Run the server
+
+```powershell
+pip install -r server\requirements.txt
+$env:ADMIN_USER = "admin"; $env:ADMIN_PASSWORD = "<strong password>"
+python server\app.py     # dev only; deploy behind HTTPS in production
+```
+
+The desktop app picks up the server via the `API_BASE_URL` /
+`UPDATE_BASE_URL` environment variables (or the `api_base_url` /
+`update_base_url` settings) — no domain is hardcoded. Without them,
+registration stays local and update checks are disabled; photo backup is
+never affected.
 
 ## Status
 
@@ -89,5 +116,34 @@ meant for version control.
   are recorded as an alias without writing a second file, and disk stats
   count distinct files. Phone stats (Photos / Backed Up / Pending) are now
   persistent.
-- Next: Phase 7 (reliability: resume, retry, partial files, reconnection).
-  See `instruction/PhotoSync_Claude_Code_Prompt.md`, section 36.
+- Phase 7 (Reliability) — **done.** Resumable uploads: deterministic
+  `.part` files per (device, media id), `X-PhotoSync-Total-Size`/`Offset`
+  headers, a `GET /api/v1/upload/offset` query, whole-file hash
+  verification before the atomic rename, 409 on offset mismatch, stale
+  `.part` cleanup at start, a disk-space guard (507), and a receiver pause
+  flag. The phone retries up to 3 times with backoff, resuming from the
+  server's offset.
+- Phase 8 (Automatic Backup) — **done.** The backup pipeline lives in
+  `BackupEngine`, shared by the UI and `AutoBackupWorker` (WorkManager,
+  hourly, unmetered network + battery-not-low, bounded 12s discovery,
+  optional completion notification). In-app, the trusted PC appearing on
+  Wi-Fi triggers a run at most every 15 minutes. The Automatic Backup
+  switch is live and persisted.
+- Phase 9 (Updates & Server) — **done.** Flask server: registration
+  (server-side IP capture, validation, rate limiting), name/email-free
+  heartbeat, update feed, and a Basic-auth admin dashboard with install
+  stats. Desktop: semantic version comparison, background update checks
+  (env-configured URL, honors auto/notify settings, no re-nagging about a
+  dismissed version), and a verified updater — HTTPS-only download,
+  SHA-256 check, installer launched as its own process.
+- Phase 10 (UI Polish) — **done.** Live light/dark theme switcher,
+  programmatic app icon, styled inputs/combo boxes, settings for updates
+  and startup behavior.
+- Phase 11 (Installer & Release) — **done.** System tray (Open,
+  Pause/Resume Backup, Exit), close-to-tray when "run in background" is
+  on, start-with-Windows registry toggle, PyInstaller spec + Inno Setup
+  script + `installer\build.ps1`, and the verified `dist\PhotoSync`
+  bundle.
+
+All 11 phases of `instruction/PhotoSync_Claude_Code_Prompt.md` §36 are
+implemented.

@@ -103,6 +103,20 @@ QCheckBox::indicator:checked {{
     background: {accent};
     border-color: {accent};
 }}
+QComboBox {{
+    background: {surface_alt};
+    color: {text};
+    border: 1px solid {border};
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: 140px;
+}}
+QComboBox QAbstractItemView {{
+    background: {surface};
+    color: {text};
+    border: 1px solid {border};
+    selection-background-color: {accent};
+}}
 QLabel {{
     color: {text};
     background: transparent;
