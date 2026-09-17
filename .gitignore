@@ -27,3 +27,5 @@ mobile/.cxx/
 # OS
 Thumbs.db
 .DS_Store
+
+mobile/.kotlin/
