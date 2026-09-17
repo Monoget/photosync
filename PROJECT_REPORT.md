@@ -1,7 +1,7 @@
 # PixSynq — Full Project Report
 
 **Date:** 2026-09-15
-**Repository:** https://github.com/Monoget/photosync (private, branch `main`)
+**Repository:** https://github.com/Monoget/pixsynq (private, branch `main`)
 **Status:** All 11 development phases of the specification
 (`instruction/PixSynq_Claude_Code_Prompt.md`, §36) implemented and verified.
 **Tests:** 74 passing.
