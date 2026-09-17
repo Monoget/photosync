@@ -22,7 +22,7 @@ from ui.tray import TrayController
 from ui.windows.main_window import MainWindow
 
 APP_NAME = "PixSynq"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.1"
 ORG_NAME = "PixSynq"
 
 log = logging.getLogger(__name__)

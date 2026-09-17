@@ -2,7 +2,7 @@
 ; Build the PyInstaller bundle first (see build.ps1), then compile this.
 
 #define AppName "PixSynq"
-#define AppVersion "0.1.0"
+#define AppVersion "0.1.1"
 #define AppExe "PixSynq.exe"
 
 [Setup]
