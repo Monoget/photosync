@@ -1,4 +1,4 @@
-package com.photosync.app.pairing
+package com.pixsynq.app.pairing
 
 import android.content.Context
 import androidx.core.content.edit
@@ -22,7 +22,7 @@ data class TrustedPc(
 class TrustStore(context: Context) {
 
     private val prefs =
-        context.applicationContext.getSharedPreferences("photosync", Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences("pixsynq", Context.MODE_PRIVATE)
 
     /** Stable random identity for this installation. */
     val deviceId: String

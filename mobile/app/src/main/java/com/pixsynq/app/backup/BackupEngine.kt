@@ -1,12 +1,12 @@
-package com.photosync.app.backup
+package com.pixsynq.app.backup
 
 import android.content.Context
-import com.photosync.app.discovery.DiscoveredPc
-import com.photosync.app.media.GalleryScanner
-import com.photosync.app.pairing.TrustStore
-import com.photosync.app.pairing.TrustedPc
-import com.photosync.app.transfer.UploadClient
-import com.photosync.app.transfer.UploadResult
+import com.pixsynq.app.discovery.DiscoveredPc
+import com.pixsynq.app.media.GalleryScanner
+import com.pixsynq.app.pairing.TrustStore
+import com.pixsynq.app.pairing.TrustedPc
+import com.pixsynq.app.transfer.UploadClient
+import com.pixsynq.app.transfer.UploadResult
 
 data class BackupRun(
     val total: Int = 0,

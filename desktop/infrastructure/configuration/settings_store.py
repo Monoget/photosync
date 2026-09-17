@@ -1,6 +1,6 @@
 """JSON-backed settings persistence with atomic writes.
 
-Lives at %LOCALAPPDATA%\\PhotoSync\\settings.json. Also owns the
+Lives at %LOCALAPPDATA%\\PixSynq\\settings.json. Also owns the
 installation ID (random UUID, generated once per installation — spec §5).
 """
 from __future__ import annotations

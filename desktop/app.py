@@ -21,9 +21,9 @@ from ui.styles.theme import Theme, apply_theme
 from ui.tray import TrayController
 from ui.windows.main_window import MainWindow
 
-APP_NAME = "PhotoSync"
+APP_NAME = "PixSynq"
 APP_VERSION = "0.1.0"
-ORG_NAME = "PhotoSync"
+ORG_NAME = "PixSynq"
 
 log = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from infrastructure.configuration.startup import (
     set_start_with_windows,
 )
 
-TEST_KEY = r"Software\PhotoSyncTest\Run"
+TEST_KEY = r"Software\PixSynqTest\Run"
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "win32", reason="Windows registry only"
@@ -22,7 +22,7 @@ def cleanup():
 
     try:
         winreg.DeleteKey(winreg.HKEY_CURRENT_USER, TEST_KEY)
-        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, r"Software\PhotoSyncTest")
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, r"Software\PixSynqTest")
     except OSError:
         pass
 

@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PhotoSync"
+rootProject.name = "PixSynq"
 include(":app")

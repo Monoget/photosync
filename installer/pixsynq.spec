@@ -1,5 +1,5 @@
-# PyInstaller spec for the PhotoSync desktop app.
-# Build:  desktop\.venv\Scripts\pyinstaller installer\photosync.spec
+# PyInstaller spec for the PixSynq desktop app.
+# Build:  desktop\.venv\Scripts\pyinstaller installer\pixsynq.spec
 from pathlib import Path
 
 root = Path(SPECPATH).parent
@@ -25,7 +25,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="PhotoSync",
+    name="PixSynq",
     console=False,
     icon=None,
 )
@@ -33,5 +33,5 @@ coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
-    name="PhotoSync",
+    name="PixSynq",
 )

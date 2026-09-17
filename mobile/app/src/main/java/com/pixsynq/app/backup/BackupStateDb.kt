@@ -1,4 +1,4 @@
-package com.photosync.app.backup
+package com.pixsynq.app.backup
 
 import android.content.ContentValues
 import android.content.Context

@@ -73,7 +73,7 @@ def test_registration_invalid(name, email, consent):
 
 
 def test_destination_created_and_writable(tmp_path):
-    target = tmp_path / "new" / "PhotoSync"
+    target = tmp_path / "new" / "PixSynq"
     check = validate_destination(target)
     assert check.ok
     assert target.is_dir()

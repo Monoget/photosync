@@ -53,7 +53,7 @@ class DeviceIdentity:
 def _generate(cert_path: Path, key_path: Path) -> x509.Certificate:
     key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, f"PhotoSync-{socket.gethostname()}")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, f"PixSynq-{socket.gethostname()}")]
     )
     now = datetime.datetime.now(datetime.timezone.utc)
     cert = (

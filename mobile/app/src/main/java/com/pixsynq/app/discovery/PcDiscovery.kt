@@ -1,4 +1,4 @@
-package com.photosync.app.discovery
+package com.pixsynq.app.discovery
 
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -14,8 +14,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Local Wi-Fi discovery (spec section 11, Phase 3).
  *
- * Browses for PhotoSync desktops (`_photosync._tcp.`) and registers this
- * phone (`_photosync-m._tcp.`) so the PC can list it before pairing.
+ * Browses for PixSynq desktops (`_pixsynq._tcp.`) and registers this
+ * phone (`_pixsynq-m._tcp.`) so the PC can list it before pairing.
  * The registered port is a real bound socket that the transfer client
  * work in later phases replaces.
  */
@@ -90,7 +90,7 @@ class PcDiscovery(context: Context) {
     private fun registerSelf() {
         val socket = ServerSocket(0).also { localSocket = it }
         val info = NsdServiceInfo().apply {
-            serviceName = "PhotoSync ${Build.MODEL}".take(63)
+            serviceName = "PixSynq ${Build.MODEL}".take(63)
             serviceType = MOBILE_TYPE
             port = socket.localPort
             setAttribute("protocol", "1")
@@ -167,7 +167,7 @@ class PcDiscovery(context: Context) {
 
     companion object {
         private const val TAG = "PcDiscovery"
-        private const val DESKTOP_TYPE = "_photosync._tcp."
-        private const val MOBILE_TYPE = "_photosync-m._tcp."
+        private const val DESKTOP_TYPE = "_pixsynq._tcp."
+        private const val MOBILE_TYPE = "_pixsynq-m._tcp."
     }
 }

@@ -76,8 +76,8 @@ def test_update_feed(client):
             """
             INSERT INTO releases (platform, architecture, version, mandatory,
                 title, message, download_url, sha256, created_at)
-            VALUES ('windows', 'x64', '1.1.0', 0, 'PhotoSync 1.1.0',
-                'Faster transfers', 'https://example.com/PhotoSync-1.1.0.exe',
+            VALUES ('windows', 'x64', '1.1.0', 0, 'PixSynq 1.1.0',
+                'Faster transfers', 'https://example.com/PixSynq-1.1.0.exe',
                 ?, ?)
             """,
             ("a" * 64, datetime.now(timezone.utc).isoformat()),
@@ -102,7 +102,7 @@ def test_admin_requires_auth(client, monkeypatch):
     token = base64.b64encode(b"admin:hunter2hunter2").decode()
     resp = c.get("/admin", headers={"Authorization": f"Basic {token}"})
     assert resp.status_code == 200
-    assert b"PhotoSync Installations" in resp.data
+    assert b"PixSynq Installations" in resp.data
 
 
 def test_rate_limit(client):

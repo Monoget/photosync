@@ -1,4 +1,4 @@
-package com.photosync.app.media
+package com.pixsynq.app.media
 
 import android.content.Context
 import android.net.Uri

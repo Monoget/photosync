@@ -1,16 +1,16 @@
-# PhotoSync — Full Project Report
+# PixSynq — Full Project Report
 
 **Date:** 2026-09-15
 **Repository:** https://github.com/Monoget/photosync (private, branch `main`)
 **Status:** All 11 development phases of the specification
-(`instruction/PhotoSync_Claude_Code_Prompt.md`, §36) implemented and verified.
+(`instruction/PixSynq_Claude_Code_Prompt.md`, §36) implemented and verified.
 **Tests:** 74 passing.
 
 ---
 
-## 1. What PhotoSync is
+## 1. What PixSynq is
 
-PhotoSync automatically backs up photos from an Android phone to a
+PixSynq automatically backs up photos from an Android phone to a
 user-chosen folder on a Windows PC whenever both devices are on the same
 Wi-Fi network. There is no cloud in the photo path — transfers are direct,
 LAN-only, and TLS-encrypted. An optional (self-hosted) server handles
@@ -19,7 +19,7 @@ never depends on it.
 
 ### End-to-end user flow
 
-1. **Windows:** install PhotoSync → first-run flow: Welcome → Register
+1. **Windows:** install PixSynq → first-run flow: Welcome → Register
    (name/email + privacy consent) → Choose photo folder → Ready.
 2. **Android:** install the app → grant photo access (rationale shown,
    denial handled gracefully with retry).
@@ -52,7 +52,7 @@ D:\Drive-Application
 │   └── .venv/                     dev virtualenv (not in git)
 ├── mobile/           Android app — Kotlin 2.1.21, Jetpack Compose,
 │   │                 AGP 8.11.1, Gradle 8.13, compileSdk 36, minSdk 26
-│   └── app/src/main/java/com/photosync/app/
+│   └── app/src/main/java/com/pixsynq/app/
 │       ├── ui/                    HomeScreen, HomeViewModel, theme
 │       ├── discovery/             NSD register + browse
 │       ├── pairing/               TrustStore, PairingClient
@@ -63,7 +63,7 @@ D:\Drive-Application
 │       └── net/                   PinnedHttp (fingerprint-pinned TLS)
 ├── server/           Flask API + admin dashboard (registration, heartbeat,
 │                     update feed) + add_release.py publishing CLI
-├── installer/        photosync.spec (PyInstaller), PhotoSync.iss (Inno
+├── installer/        pixsynq.spec (PyInstaller), PixSynq.iss (Inno
 │                     Setup), build.ps1
 ├── tests/            unit/, integration/, server/ — 74 tests
 ├── instruction/      the original build specification
@@ -120,8 +120,8 @@ mDNS service types (RFC 6763 limits service names to 15 bytes):
 
 | Role | Service type | TXT records |
 |---|---|---|
-| PC (receiver) | `_photosync._tcp.local.` | protocol, name, platform, app_version |
-| Phone | `_photosync-m._tcp.local.` | protocol, name, platform |
+| PC (receiver) | `_pixsynq._tcp.local.` | protocol, name, platform, app_version |
+| Phone | `_pixsynq-m._tcp.local.` | protocol, name, platform |
 
 HTTPS endpoints on the PC receiver (self-signed cert, fingerprint-pinned
 by the phone; **private/loopback source addresses only**):
@@ -135,9 +135,9 @@ by the phone; **private/loopback source addresses only**):
 | `POST /api/v1/upload` | Bearer | photo bytes (see below) |
 | `GET /api/v1/upload/offset?media_id=` | Bearer | resume point, or `complete: true` |
 
-Upload headers: `X-PhotoSync-Media-Id`, `X-PhotoSync-Filename`
-(URL-encoded UTF-8), `X-PhotoSync-Sha256`, `X-PhotoSync-Date-Taken`
-(epoch ms), `X-PhotoSync-Total-Size`, `X-PhotoSync-Offset`. The body is
+Upload headers: `X-PixSynq-Media-Id`, `X-PixSynq-Filename`
+(URL-encoded UTF-8), `X-PixSynq-Sha256`, `X-PixSynq-Date-Taken`
+(epoch ms), `X-PixSynq-Total-Size`, `X-PixSynq-Offset`. The body is
 raw bytes for `[offset, offset+Content-Length)`. Responses: partial ack,
 success, `duplicate: true`, `409` offset mismatch (with actual offset),
 `507` insufficient disk space, `503` while paused from the tray.
@@ -152,7 +152,7 @@ success, `duplicate: true`, `409` offset mismatch (with actual offset),
 4. Upload the rest sequentially; per-photo SHA-256 is computed first so
    the PC can verify. Up to 3 attempts with backoff; retries resume from
    the server's offset. One bad file never aborts the run.
-5. The PC streams to `<dest>/.photosync-tmp/<device>_<media>.part`,
+5. The PC streams to `<dest>/.pixsynq-tmp/<device>_<media>.part`,
    verifies length + SHA-256 over the whole file, then atomically renames
    into `<dest>/YYYY/MM/` and only then records the photo as completed.
 
@@ -199,10 +199,10 @@ success, `duplicate: true`, `409` offset mismatch (with actual offset),
 
 | What | Where |
 |---|---|
-| Windows app (installed) | `C:\Program Files\PhotoSync\` |
-| Settings, SQLite DB, logs, TLS identity | `%LOCALAPPDATA%\PhotoSync\` |
-| Photos | user-chosen folder (default `~\Pictures\PhotoSync`), organized `YYYY/MM/` |
-| In-flight transfers | `<destination>\.photosync-tmp\*.part` (auto-cleaned after 7 days) |
+| Windows app (installed) | `C:\Program Files\PixSynq\` |
+| Settings, SQLite DB, logs, TLS identity | `%LOCALAPPDATA%\PixSynq\` |
+| Photos | user-chosen folder (default `~\Pictures\PixSynq`), organized `YYYY/MM/` |
+| In-flight transfers | `<destination>\.pixsynq-tmp\*.part` (auto-cleaned after 7 days) |
 | Phone backup state | app-private SQLite `backup_state.db` |
 | Phone trust/settings | app-private SharedPreferences |
 
@@ -243,15 +243,15 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```powershell
 desktop\.venv\Scripts\pip install pyinstaller
 powershell -File installer\build.ps1
-# Bundle:    dist\PhotoSync\PhotoSync.exe          (build verified working)
-# Installer: installer\output\PhotoSync-0.1.0-Setup.exe (needs Inno Setup's iscc)
+# Bundle:    dist\PixSynq\PixSynq.exe          (build verified working)
+# Installer: installer\output\PixSynq-0.1.0-Setup.exe (needs Inno Setup's iscc)
 ```
 
 Release checklist: build → Authenticode-sign the installer → record its
 SHA-256 → upload → publish to the update feed:
 
 ```powershell
-python server\add_release.py --version 1.1.0 --url https://<host>/PhotoSync-1.1.0.exe --sha256 <hex>
+python server\add_release.py --version 1.1.0 --url https://<host>/PixSynq-1.1.0.exe --sha256 <hex>
 ```
 
 ### Server
@@ -347,14 +347,14 @@ listed below.
    large galleries) should be run before a public release.
 7. **Nice-to-haves** — configurable folder schemes (spec §16 lists
    year/month/day, device-name…), diagnostic-log export button (logs
-   already rotate in `%LOCALAPPDATA%\PhotoSync\logs`), heartbeat while
+   already rotate in `%LOCALAPPDATA%\PixSynq\logs`), heartbeat while
    running (currently at app start, throttled to 24 h).
 
 ---
 
 ## 11. Key implementation notes (for future maintenance)
 
-- `_photosync-m` (not `-mobile`): RFC 6763 caps mDNS service names at
+- `_pixsynq-m` (not `-mobile`): RFC 6763 caps mDNS service names at
   15 bytes — zeroconf enforces it.
 - `Path("")` stringifies to `"."`; destination validation guards this.
 - Qt signals are the only bridge from worker threads (zeroconf callbacks,

@@ -1,7 +1,7 @@
 """Admin CLI: publish a release row for the update feed.
 
 Usage:
-    python add_release.py --version 1.1.0 --url https://.../PhotoSync-1.1.0.exe \
+    python add_release.py --version 1.1.0 --url https://.../PixSynq-1.1.0.exe \
         --sha256 <hex> [--title ...] [--message ...] [--mandatory]
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ def main() -> None:
     parser.add_argument("--mandatory", action="store_true")
     args = parser.parse_args()
 
-    db = Path(os.environ.get("PHOTOSYNC_DB", "photosync-server.db"))
+    db = Path(os.environ.get("PIXSYNQ_DB", "pixsynq-server.db"))
     with sqlite3.connect(db) as conn:
         conn.execute(
             """
@@ -40,7 +40,7 @@ def main() -> None:
                 args.platform, args.architecture, args.version, args.minimum,
                 datetime.now(timezone.utc).date().isoformat(),
                 int(args.mandatory),
-                args.title or f"PhotoSync {args.version}",
+                args.title or f"PixSynq {args.version}",
                 args.message or "", args.download_url, args.notes_url,
                 args.sha256.lower(), datetime.now(timezone.utc).isoformat(),
             ),

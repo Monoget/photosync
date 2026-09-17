@@ -133,7 +133,7 @@ class TransferEvents(QObject):
 
 
 class _Handler(BaseHTTPRequestHandler):
-    server_version = "PhotoSync"
+    server_version = "PixSynq"
     protocol_version = "HTTP/1.1"
 
     # -- Helpers --------------------------------------------------------
@@ -224,7 +224,7 @@ class _Handler(BaseHTTPRequestHandler):
         dest_root = settings.destination_dir if settings else None
         offset = 0
         if dest_root is not None:
-            part = part_path(Path(dest_root) / ".photosync-tmp", device_id, media_id)
+            part = part_path(Path(dest_root) / ".pixsynq-tmp", device_id, media_id)
             if part.exists():
                 offset = part.stat().st_size
         self._send_json(200, {"complete": False, "offset": offset})
@@ -326,15 +326,15 @@ class _Handler(BaseHTTPRequestHandler):
         if dest_root is None or srv.photo_store is None:  # type: ignore[attr-defined]
             return fail(409, "no destination folder configured")
 
-        media_id = self.headers.get("X-PhotoSync-Media-Id", "").strip()[:64]
-        raw_name = self.headers.get("X-PhotoSync-Filename", "")
+        media_id = self.headers.get("X-PixSynq-Media-Id", "").strip()[:64]
+        raw_name = self.headers.get("X-PixSynq-Filename", "")
         filename = sanitize_filename(urllib.parse.unquote(raw_name))
-        expected_hash = self.headers.get("X-PhotoSync-Sha256", "").strip().lower()
+        expected_hash = self.headers.get("X-PixSynq-Sha256", "").strip().lower()
         if not media_id or len(expected_hash) != 64:
             return fail(400, "missing media id or sha256")
 
         taken_at = None
-        taken_raw = self.headers.get("X-PhotoSync-Date-Taken", "")
+        taken_raw = self.headers.get("X-PixSynq-Date-Taken", "")
         try:
             taken_at = datetime.fromtimestamp(int(taken_raw) / 1000, tz=timezone.utc)
         except (ValueError, OSError, OverflowError):
@@ -369,8 +369,8 @@ class _Handler(BaseHTTPRequestHandler):
         # a `total`-byte file starting at `offset`. A deterministic .part
         # name lets an interrupted transfer continue where it stopped.
         try:
-            total = int(self.headers.get("X-PhotoSync-Total-Size", str(length)))
-            offset = int(self.headers.get("X-PhotoSync-Offset", "0"))
+            total = int(self.headers.get("X-PixSynq-Total-Size", str(length)))
+            offset = int(self.headers.get("X-PixSynq-Offset", "0"))
         except ValueError:
             return fail(400, "invalid resume headers")
         if total <= 0 or total > MAX_UPLOAD_BYTES or offset < 0 \
@@ -384,7 +384,7 @@ class _Handler(BaseHTTPRequestHandler):
         if free < total + DISK_RESERVE_BYTES:
             return fail(507, "insufficient disk space on the backup drive")
 
-        tmp_dir = Path(dest_root) / ".photosync-tmp"
+        tmp_dir = Path(dest_root) / ".pixsynq-tmp"
         try:
             tmp_dir.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -507,7 +507,7 @@ class ReceiverServer:
         settings = getattr(self._httpd, "settings", None)
         dest = settings.destination_dir if settings else None
         if dest is not None:
-            clean_stale_parts(Path(dest) / ".photosync-tmp")
+            clean_stale_parts(Path(dest) / ".pixsynq-tmp")
         self._thread = threading.Thread(
             target=self._httpd.serve_forever, daemon=True, name="receiver"
         )

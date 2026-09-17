@@ -1,4 +1,4 @@
-# PhotoSync
+# PixSynq
 
 Automatically back up Android photos to a Windows PC over local Wi-Fi.
 
@@ -18,7 +18,7 @@ python -m venv .venv
 .venv\Scripts\python main.py
 ```
 
-User data (settings, database, logs) is stored in `%LOCALAPPDATA%\PhotoSync`.
+User data (settings, database, logs) is stored in `%LOCALAPPDATA%\PixSynq`.
 Photos are stored in a user-selected folder chosen during first-run setup.
 
 ## Tests
@@ -48,7 +48,7 @@ cd mobile
 .\gradlew.bat assembleRelease         # -> app\build\outputs\apk\release\app-release.apk
 ```
 
-`photosync-release.keystore` and `keystore.properties` are git-ignored —
+`pixsynq-release.keystore` and `keystore.properties` are git-ignored —
 **back them up**; losing the keystore means installed apps can never be
 updated. Without them, `assembleRelease` produces an unsigned build.
 
@@ -59,8 +59,8 @@ desktop\.venv\Scripts\pip install pyinstaller
 powershell -File installer\build.ps1
 ```
 
-This produces `dist\PhotoSync\PhotoSync.exe` and, when Inno Setup's `iscc`
-is on PATH, the installer at `installer\output\PhotoSync-<version>-Setup.exe`.
+This produces `dist\PixSynq\PixSynq.exe` and, when Inno Setup's `iscc`
+is on PATH, the installer at `installer\output\PixSynq-<version>-Setup.exe`.
 
 **Authenticode signing** is built into the pipeline: set either
 `CODESIGN_THUMBPRINT` (certificate in the CurrentUser store — EV token or
@@ -94,12 +94,12 @@ never affected.
 - Phase 2 (Windows Setup) — **done.** First-run flow (Welcome → Register →
   Choose Folder → Ready) with privacy disclosure and consent, name/email
   validation, folder validation (creatable + writable), atomic JSON settings
-  persistence in `%LOCALAPPDATA%\PhotoSync`, per-installation UUID, and
+  persistence in `%LOCALAPPDATA%\PixSynq`, per-installation UUID, and
   destination change in Settings. Registration is stored locally marked
   `pending` until the registration API exists (spec §32: telemetry must
   never block backup).
-- Phase 3 (Discovery) — **done.** Desktop announces `_photosync._tcp` via
-  zeroconf and browses for phones (`_photosync-m._tcp`); Android registers
+- Phase 3 (Discovery) — **done.** Desktop announces `_pixsynq._tcp` via
+  zeroconf and browses for phones (`_pixsynq-m._tcp`); Android registers
   itself via NSD and browses for PCs, with sequential resolve queuing. Both
   UIs show live network status: the desktop Devices page lists discovered
   phones and the dashboard shows a device count; the Android home screen
@@ -136,7 +136,7 @@ never affected.
   count distinct files. Phone stats (Photos / Backed Up / Pending) are now
   persistent.
 - Phase 7 (Reliability) — **done.** Resumable uploads: deterministic
-  `.part` files per (device, media id), `X-PhotoSync-Total-Size`/`Offset`
+  `.part` files per (device, media id), `X-PixSynq-Total-Size`/`Offset`
   headers, a `GET /api/v1/upload/offset` query, whole-file hash
   verification before the atomic rename, 409 on offset mismatch, stale
   `.part` cleanup at start, a disk-space guard (507), and a receiver pause
@@ -161,8 +161,8 @@ never affected.
 - Phase 11 (Installer & Release) — **done.** System tray (Open,
   Pause/Resume Backup, Exit), close-to-tray when "run in background" is
   on, start-with-Windows registry toggle, PyInstaller spec + Inno Setup
-  script + `installer\build.ps1`, and the verified `dist\PhotoSync`
+  script + `installer\build.ps1`, and the verified `dist\PixSynq`
   bundle.
 
-All 11 phases of `instruction/PhotoSync_Claude_Code_Prompt.md` §36 are
+All 11 phases of `instruction/PixSynq_Claude_Code_Prompt.md` §36 are
 implemented.

@@ -1,4 +1,4 @@
-package com.photosync.app.ui.theme
+package com.pixsynq.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -31,7 +31,7 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun PhotoSyncTheme(
+fun PixSynqTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic (Material You) color on Android 12+
     dynamicColor: Boolean = true,

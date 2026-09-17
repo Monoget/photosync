@@ -1,9 +1,9 @@
-package com.photosync.app.transfer
+package com.pixsynq.app.transfer
 
 import android.content.Context
-import com.photosync.app.media.PhotoItem
-import com.photosync.app.net.PinnedHttp
-import com.photosync.app.pairing.TrustedPc
+import com.pixsynq.app.media.PhotoItem
+import com.pixsynq.app.net.PinnedHttp
+import com.pixsynq.app.pairing.TrustedPc
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -89,15 +89,15 @@ class UploadClient(context: Context) {
             conn.setFixedLengthStreamingMode(size - offset)
             conn.setRequestProperty("Authorization", "Bearer ${pc.token}")
             conn.setRequestProperty("Content-Type", "application/octet-stream")
-            conn.setRequestProperty("X-PhotoSync-Media-Id", photo.mediaId.toString())
+            conn.setRequestProperty("X-PixSynq-Media-Id", photo.mediaId.toString())
             conn.setRequestProperty(
-                "X-PhotoSync-Filename",
+                "X-PixSynq-Filename",
                 URLEncoder.encode(photo.displayName, "UTF-8"),
             )
-            conn.setRequestProperty("X-PhotoSync-Sha256", sha256)
-            conn.setRequestProperty("X-PhotoSync-Date-Taken", photo.dateTakenMs.toString())
-            conn.setRequestProperty("X-PhotoSync-Total-Size", size.toString())
-            conn.setRequestProperty("X-PhotoSync-Offset", offset.toString())
+            conn.setRequestProperty("X-PixSynq-Sha256", sha256)
+            conn.setRequestProperty("X-PixSynq-Date-Taken", photo.dateTakenMs.toString())
+            conn.setRequestProperty("X-PixSynq-Total-Size", size.toString())
+            conn.setRequestProperty("X-PixSynq-Offset", offset.toString())
 
             resolver.openInputStream(photo.uri)?.use { input ->
                 skipFully(input, offset)

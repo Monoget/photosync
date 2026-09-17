@@ -53,7 +53,7 @@ class SettingsPage(BasePage):
         self.body.addWidget(appearance)
 
         startup = Card("Startup & Background")
-        self.startup_box = QCheckBox("Start PhotoSync with Windows")
+        self.startup_box = QCheckBox("Start PixSynq with Windows")
         self.startup_box.setChecked(is_start_with_windows())
         self.startup_box.toggled.connect(self._startup_toggled)
         self.background_box = QCheckBox("Keep running in the background when closed")

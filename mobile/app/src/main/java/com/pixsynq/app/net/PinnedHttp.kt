@@ -1,4 +1,4 @@
-package com.photosync.app.net
+package com.pixsynq.app.net
 
 import java.io.IOException
 import java.net.URL

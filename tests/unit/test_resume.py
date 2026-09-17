@@ -31,7 +31,7 @@ def qapp():
 
 @pytest.fixture()
 def server(qapp, tmp_path):
-    db = tmp_path / "photosync.db"
+    db = tmp_path / "pixsynq.db"
     migrate(db)
     devices = DeviceStore(db)
     photos = PhotoStore(db)
@@ -60,12 +60,12 @@ def _chunk(port, token, chunk: bytes, media_id, total, offset, sha,
         f"https://127.0.0.1:{port}/api/v1/upload", method="POST", data=chunk
     )
     req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("X-PhotoSync-Media-Id", media_id)
-    req.add_header("X-PhotoSync-Filename", urllib.parse.quote(filename))
-    req.add_header("X-PhotoSync-Sha256", sha)
-    req.add_header("X-PhotoSync-Date-Taken", "1789500000000")
-    req.add_header("X-PhotoSync-Total-Size", str(total))
-    req.add_header("X-PhotoSync-Offset", str(offset))
+    req.add_header("X-PixSynq-Media-Id", media_id)
+    req.add_header("X-PixSynq-Filename", urllib.parse.quote(filename))
+    req.add_header("X-PixSynq-Sha256", sha)
+    req.add_header("X-PixSynq-Date-Taken", "1789500000000")
+    req.add_header("X-PixSynq-Total-Size", str(total))
+    req.add_header("X-PixSynq-Offset", str(offset))
     try:
         with urllib.request.urlopen(req, context=CTX, timeout=15) as resp:
             return resp.status, json.loads(resp.read())
@@ -117,7 +117,7 @@ def test_hash_mismatch_after_resume_discards_part(server):
     _chunk(srv.port, token, payload[:1000], "r3", 2000, 0, "f" * 64)
     status, body = _chunk(srv.port, token, payload[1000:], "r3", 2000, 1000, "f" * 64)
     assert status == 400 and body["error"] == "hash mismatch"
-    assert not list((dest / ".photosync-tmp").glob("*.part"))
+    assert not list((dest / ".pixsynq-tmp").glob("*.part"))
     assert not photos.completed_exists("phone-1", "r3")
 
 
@@ -139,7 +139,7 @@ def test_paused_receiver_rejects_uploads(server):
 
 
 def test_clean_stale_parts(tmp_path):
-    tmp = tmp_path / ".photosync-tmp"
+    tmp = tmp_path / ".pixsynq-tmp"
     tmp.mkdir()
     old = tmp / "old.part"
     fresh = tmp / "fresh.part"

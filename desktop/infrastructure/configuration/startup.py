@@ -7,7 +7,7 @@ import sys
 log = logging.getLogger(__name__)
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-VALUE_NAME = "PhotoSync"
+VALUE_NAME = "PixSynq"
 
 
 def _command() -> str:

@@ -11,7 +11,7 @@ class AboutPage(BasePage):
     def __init__(self, app_version: str) -> None:
         super().__init__("About")
 
-        card = Card("PhotoSync")
+        card = Card("PixSynq")
         version = QLabel(f"Version {app_version}")
         desc = QLabel("Automatically back up your Android photos to your "
                       "Windows PC over Wi-Fi.")

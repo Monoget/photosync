@@ -18,7 +18,7 @@ def configure_logging(logs_dir: Path, level: int = logging.INFO) -> None:
     formatter = logging.Formatter(LOG_FORMAT)
 
     file_handler = logging.handlers.TimedRotatingFileHandler(
-        logs_dir / "photosync.log",
+        logs_dir / "pixsynq.log",
         when="midnight",
         backupCount=14,
         encoding="utf-8",

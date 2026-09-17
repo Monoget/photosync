@@ -1,8 +1,8 @@
-"""PhotoSync server: installation registry, heartbeat, update feed, admin.
+"""PixSynq server: installation registry, heartbeat, update feed, admin.
 
 Deployment configuration comes from the environment (spec §6):
 
-    PHOTOSYNC_DB       SQLite path            (default ./photosync-server.db)
+    PIXSYNQ_DB       SQLite path            (default ./pixsynq-server.db)
     ADMIN_USER         admin dashboard user   (dashboard disabled if unset)
     ADMIN_PASSWORD     admin dashboard pass   (dashboard disabled if unset)
 
@@ -92,7 +92,7 @@ class RateLimiter:
 def create_app(db_path: str | os.PathLike | None = None) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_BODY
-    path = Path(db_path or os.environ.get("PHOTOSYNC_DB", "photosync-server.db"))
+    path = Path(db_path or os.environ.get("PIXSYNQ_DB", "pixsynq-server.db"))
     limiter = RateLimiter()
 
     def db() -> sqlite3.Connection:
@@ -228,7 +228,7 @@ def create_app(db_path: str | os.PathLike | None = None) -> Flask:
             return (
                 "Authentication required",
                 401,
-                {"WWW-Authenticate": 'Basic realm="PhotoSync Admin"'},
+                {"WWW-Authenticate": 'Basic realm="PixSynq Admin"'},
             )
         with db() as conn:
             total = conn.execute("SELECT COUNT(*) FROM installations").fetchone()[0]
@@ -264,13 +264,13 @@ def create_app(db_path: str | os.PathLike | None = None) -> Flask:
             for s in systems
         )
         return f"""<!doctype html>
-<title>PhotoSync Installations</title>
+<title>PixSynq Installations</title>
 <style>
  body {{ font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 640px; }}
  table {{ border-collapse: collapse; margin: 1rem 0; }}
  td, th {{ border: 1px solid #ccc; padding: 6px 14px; text-align: left; }}
 </style>
-<h1>PhotoSync Installations</h1>
+<h1>PixSynq Installations</h1>
 <table>
  <tr><td>Total</td><td>{total}</td></tr>
  <tr><td>Active (30 days)</td><td>{active}</td></tr>

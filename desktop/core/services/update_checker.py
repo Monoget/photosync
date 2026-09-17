@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 def default_fetch(url: str) -> dict | None:
-    request = urllib.request.Request(url, headers={"User-Agent": "PhotoSync"})
+    request = urllib.request.Request(url, headers={"User-Agent": "PixSynq"})
     try:
         with urllib.request.urlopen(request, timeout=15) as resp:
             data = json.loads(resp.read())

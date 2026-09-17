@@ -1,4 +1,4 @@
-package com.photosync.app.ui
+package com.pixsynq.app.ui
 
 import android.app.Application
 import android.content.pm.PackageManager
@@ -6,15 +6,15 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.photosync.app.backup.AutoBackupWorker
-import com.photosync.app.backup.BackupEngine
-import com.photosync.app.backup.BackupRun
-import com.photosync.app.discovery.DiscoveredPc
-import com.photosync.app.discovery.PcDiscovery
-import com.photosync.app.media.GalleryScanner
-import com.photosync.app.pairing.PairingClient
-import com.photosync.app.pairing.TrustStore
-import com.photosync.app.pairing.TrustedPc
+import com.pixsynq.app.backup.AutoBackupWorker
+import com.pixsynq.app.backup.BackupEngine
+import com.pixsynq.app.backup.BackupRun
+import com.pixsynq.app.discovery.DiscoveredPc
+import com.pixsynq.app.discovery.PcDiscovery
+import com.pixsynq.app.media.GalleryScanner
+import com.pixsynq.app.pairing.PairingClient
+import com.pixsynq.app.pairing.TrustStore
+import com.pixsynq.app.pairing.TrustedPc
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

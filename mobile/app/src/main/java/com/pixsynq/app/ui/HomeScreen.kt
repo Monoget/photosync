@@ -1,4 +1,4 @@
-package com.photosync.app.ui
+package com.pixsynq.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,7 +44,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.photosync.app.discovery.DiscoveredPc
+import com.pixsynq.app.discovery.DiscoveredPc
 
 /**
  * Main screen (spec section 18). Phase 5: gallery permission flow,
@@ -79,7 +79,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("PhotoSync") }) },
+        topBar = { TopAppBar(title = { Text("PixSynq") }) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -285,7 +285,7 @@ private fun PermissionCard(onRequest: () -> Unit) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Photo access needed", style = MaterialTheme.typography.titleMedium)
             Text(
-                "PhotoSync needs access to your photos to back them up to " +
+                "PixSynq needs access to your photos to back them up to " +
                     "your PC. Photos are only ever sent to the PC you paired.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1,6 +1,6 @@
-package com.photosync.app.discovery
+package com.pixsynq.app.discovery
 
-/** A PhotoSync desktop seen on the local network (not necessarily paired). */
+/** A PixSynq desktop seen on the local network (not necessarily paired). */
 data class DiscoveredPc(
     val serviceName: String,
     val displayName: String,

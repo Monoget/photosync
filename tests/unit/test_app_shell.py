@@ -41,6 +41,6 @@ def test_light_theme_applies(qapp):
 def test_app_paths_are_per_user(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     paths = AppPaths.default()
-    assert paths.data_dir == tmp_path / "PhotoSync"
+    assert paths.data_dir == tmp_path / "PixSynq"
     paths.ensure()
     assert paths.logs_dir.is_dir()

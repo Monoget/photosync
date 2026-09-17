@@ -6,7 +6,7 @@ desktop/.venv/
 build/
 dist/
 installer/output/
-photosync-server.db
+pixsynq-server.db
 
 # Android / Gradle
 mobile/.gradle/

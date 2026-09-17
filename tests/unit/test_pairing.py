@@ -40,7 +40,7 @@ def test_identity_is_persistent(tmp_path):
 
 
 def test_migrate_idempotent_and_device_roundtrip(tmp_path):
-    db = tmp_path / "photosync.db"
+    db = tmp_path / "pixsynq.db"
     migrate(db)
     migrate(db)  # second run must be a no-op
     store = DeviceStore(db)
@@ -76,7 +76,7 @@ def test_is_local_address(address, expected):
 
 @pytest.fixture()
 def receiver(qapp, tmp_path):
-    db = tmp_path / "photosync.db"
+    db = tmp_path / "pixsynq.db"
     migrate(db)
     store = DeviceStore(db)
     identity = DeviceIdentity.load_or_create(tmp_path)

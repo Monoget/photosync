@@ -20,7 +20,7 @@ class TrayController:
         self._receiver = receiver
 
         self.tray = QSystemTrayIcon(app_icon(), app)
-        self.tray.setToolTip("PhotoSync")
+        self.tray.setToolTip("PixSynq")
 
         menu = QMenu()
         open_action = QAction("Open", menu)

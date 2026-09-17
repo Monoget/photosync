@@ -1,6 +1,6 @@
 """Registration upload and heartbeat (spec §4, §9).
 
-Everything here is best-effort: PhotoSync works fully without the
+Everything here is best-effort: PixSynq works fully without the
 server (spec §32), and nothing runs unless the user completed the
 consent flow and an API base URL is configured via deployment
 configuration (API_BASE_URL env var or the "api_base_url" setting).
@@ -31,7 +31,7 @@ def _post(url: str, payload: dict) -> bool:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "User-Agent": "PhotoSync"},
+        headers={"Content-Type": "application/json", "User-Agent": "PixSynq"},
         method="POST",
     )
     try:

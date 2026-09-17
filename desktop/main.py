@@ -1,4 +1,4 @@
-"""PhotoSync desktop entry point."""
+"""PixSynq desktop entry point."""
 from __future__ import annotations
 
 import sys

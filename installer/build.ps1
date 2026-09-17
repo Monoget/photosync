@@ -1,25 +1,25 @@
-# Build the PhotoSync Windows release.
-#   1. PyInstaller bundle -> dist\PhotoSync\
+# Build the PixSynq Windows release.
+#   1. PyInstaller bundle -> dist\PixSynq\
 #   2. Inno Setup installer -> installer\output\  (if iscc is installed)
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 
 & "$root\desktop\.venv\Scripts\pyinstaller" --noconfirm --distpath "$root\dist" `
-    --workpath "$root\build" "$root\installer\photosync.spec"
+    --workpath "$root\build" "$root\installer\pixsynq.spec"
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
-Write-Host "Bundle: $root\dist\PhotoSync\PhotoSync.exe"
+Write-Host "Bundle: $root\dist\PixSynq\PixSynq.exe"
 
 $canSign = $env:CODESIGN_THUMBPRINT -or $env:CODESIGN_PFX
 if ($canSign) {
-    & powershell -File "$root\installer\sign.ps1" "$root\dist\PhotoSync\PhotoSync.exe"
+    & powershell -File "$root\installer\sign.ps1" "$root\dist\PixSynq\PixSynq.exe"
 } else {
     Write-Host "No CODESIGN_* credentials set - exe left unsigned (SmartScreen will warn)."
 }
 
 $iscc = Get-Command iscc -ErrorAction SilentlyContinue
 if ($iscc) {
-    & $iscc "$root\installer\PhotoSync.iss"
-    $setup = Get-ChildItem "$root\installer\output\PhotoSync-*-Setup.exe" |
+    & $iscc "$root\installer\PixSynq.iss"
+    $setup = Get-ChildItem "$root\installer\output\PixSynq-*-Setup.exe" |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($canSign -and $setup) {
         & powershell -File "$root\installer\sign.ps1" $setup.FullName

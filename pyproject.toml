@@ -1,5 +1,5 @@
 [project]
-name = "photosync"
+name = "pixsynq"
 version = "0.1.0"
 description = "Automatically back up Android photos to a Windows PC over Wi-Fi"
 requires-python = ">=3.12"

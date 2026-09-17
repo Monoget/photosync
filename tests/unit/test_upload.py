@@ -62,7 +62,7 @@ def test_dest_path_year_month_and_uniquify(tmp_path):
 
 @pytest.fixture()
 def server(qapp, tmp_path):
-    db = tmp_path / "photosync.db"
+    db = tmp_path / "pixsynq.db"
     migrate(db)
     devices = DeviceStore(db)
     photos = PhotoStore(db)
@@ -93,10 +93,10 @@ def _upload(port, token, payload: bytes, media_id="m1", filename="IMG_1.jpg",
         f"https://127.0.0.1:{port}/api/v1/upload", method="POST", data=payload
     )
     req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("X-PhotoSync-Media-Id", media_id)
-    req.add_header("X-PhotoSync-Filename", urllib.parse.quote(filename))
-    req.add_header("X-PhotoSync-Sha256", sha)
-    req.add_header("X-PhotoSync-Date-Taken", str(taken_ms))
+    req.add_header("X-PixSynq-Media-Id", media_id)
+    req.add_header("X-PixSynq-Filename", urllib.parse.quote(filename))
+    req.add_header("X-PixSynq-Sha256", sha)
+    req.add_header("X-PixSynq-Date-Taken", str(taken_ms))
     ctx = ssl._create_unverified_context()
     try:
         with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
@@ -116,7 +116,7 @@ def test_upload_success_and_duplicate(server):
     saved = dest / f"{taken.year:04d}" / f"{taken.month:02d}" / "IMG_1.jpg"
     assert saved.read_bytes() == payload
     assert photos.completed_count() == 1
-    assert not list((dest / ".photosync-tmp").glob("*.part"))
+    assert not list((dest / ".pixsynq-tmp").glob("*.part"))
 
     # same media id again -> duplicate, no new file
     status, body = _upload(srv.port, token, payload)
@@ -133,7 +133,7 @@ def test_upload_hash_mismatch_rejected(server):
     assert status == 400
     assert photos.completed_count() == 0
     assert not list(dest.rglob("*.jpg"))
-    assert not list((dest / ".photosync-tmp").glob("*.part"))
+    assert not list((dest / ".pixsynq-tmp").glob("*.part"))
 
 
 def test_upload_requires_auth(server):

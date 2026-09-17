@@ -49,7 +49,7 @@ class PairDialog(QDialog):
         layout.addWidget(title)
 
         steps = QLabel(
-            "1. Open PhotoSync on your phone (same Wi-Fi network).\n"
+            "1. Open PixSynq on your phone (same Wi-Fi network).\n"
             "2. Tap this PC when it appears.\n"
             "3. Enter this code, or scan the QR code:"
         )

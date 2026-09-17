@@ -1,19 +1,19 @@
-; Inno Setup script for PhotoSync.
+; Inno Setup script for PixSynq.
 ; Build the PyInstaller bundle first (see build.ps1), then compile this.
 
-#define AppName "PhotoSync"
+#define AppName "PixSynq"
 #define AppVersion "0.1.0"
-#define AppExe "PhotoSync.exe"
+#define AppExe "PixSynq.exe"
 
 [Setup]
-AppId={{8F4B7C64-52A1-4C3B-9E1D-PhotoSync001}
+AppId={{8F4B7C64-52A1-4C3B-9E1D-PixSynq001}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppPublisher=PhotoSync
+AppPublisher=PixSynq
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
-OutputBaseFilename=PhotoSync-{#AppVersion}-Setup
+OutputBaseFilename=PixSynq-{#AppVersion}-Setup
 OutputDir=output
 Compression=lzma2
 SolidCompression=yes
@@ -28,7 +28,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
 Name: "startup"; Description: "Start {#AppName} when Windows starts"; Flags: unchecked
 
 [Files]
-Source: "..\dist\PhotoSync\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\PixSynq\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"

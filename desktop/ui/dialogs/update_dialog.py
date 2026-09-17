@@ -42,7 +42,7 @@ class _Downloader(QObject):
             self.failed.emit("Update URL is not HTTPS; refusing to download.")
             return
         try:
-            fd, tmp_name = tempfile.mkstemp(suffix=".exe", prefix="PhotoSyncUpdate-")
+            fd, tmp_name = tempfile.mkstemp(suffix=".exe", prefix="PixSynqUpdate-")
             digest = hashlib.sha256()
             with urllib.request.urlopen(self._url, timeout=60) as resp, \
                     os.fdopen(fd, "wb") as out:
@@ -71,7 +71,7 @@ class UpdateDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("PhotoSync Update")
+        self.setWindowTitle("PixSynq Update")
         self.setModal(True)
         self.setMinimumWidth(440)
         self._info = info
@@ -87,7 +87,7 @@ class UpdateDialog(QDialog):
         title.setProperty("class", "pageTitle")
         layout.addWidget(title)
 
-        version = QLabel(info.get("title") or f"PhotoSync {info.get('version', '')}")
+        version = QLabel(info.get("title") or f"PixSynq {info.get('version', '')}")
         layout.addWidget(version)
 
         message = QLabel(info.get("message") or "")

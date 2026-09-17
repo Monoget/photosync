@@ -26,7 +26,7 @@ def qapp():
 
 @pytest.fixture()
 def server(qapp, tmp_path):
-    db = tmp_path / "photosync.db"
+    db = tmp_path / "pixsynq.db"
     migrate(db)
     devices = DeviceStore(db)
     photos = PhotoStore(db)
@@ -67,10 +67,10 @@ def _upload(port, token, payload, media_id, filename="IMG.jpg"):
         f"https://127.0.0.1:{port}/api/v1/upload", method="POST", data=payload
     )
     req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("X-PhotoSync-Media-Id", media_id)
-    req.add_header("X-PhotoSync-Filename", urllib.parse.quote(filename))
-    req.add_header("X-PhotoSync-Sha256", hashlib.sha256(payload).hexdigest())
-    req.add_header("X-PhotoSync-Date-Taken", "1789500000000")
+    req.add_header("X-PixSynq-Media-Id", media_id)
+    req.add_header("X-PixSynq-Filename", urllib.parse.quote(filename))
+    req.add_header("X-PixSynq-Sha256", hashlib.sha256(payload).hexdigest())
+    req.add_header("X-PixSynq-Date-Taken", "1789500000000")
     ctx = ssl._create_unverified_context()
     with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
         return resp.status, json.loads(resp.read())

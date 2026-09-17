@@ -1,4 +1,4 @@
-package com.photosync.app.backup
+package com.pixsynq.app.backup
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -16,9 +16,9 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.photosync.app.discovery.PcDiscovery
-import com.photosync.app.pairing.PairingClient
-import com.photosync.app.pairing.TrustStore
+import com.pixsynq.app.discovery.PcDiscovery
+import com.pixsynq.app.pairing.PairingClient
+import com.pixsynq.app.pairing.TrustStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
@@ -55,7 +55,7 @@ class AutoBackupWorker(
         val pc = try {
             discovery.start()
             withTimeoutOrNull(12_000L) {
-                var found: com.photosync.app.discovery.DiscoveredPc? = null
+                var found: com.pixsynq.app.discovery.DiscoveredPc? = null
                 while (found == null) {
                     found = discovery.pcs.value.firstOrNull {
                         client.ping(it.host, it.port, trusted)
@@ -100,7 +100,7 @@ class AutoBackupWorker(
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_upload_done)
-            .setContentTitle("PhotoSync")
+            .setContentTitle("PixSynq")
             .setContentText(
                 "$uploaded photo${if (uploaded == 1) "" else "s"} backed up to your PC"
             )
@@ -112,7 +112,7 @@ class AutoBackupWorker(
     companion object {
         private const val TAG = "AutoBackupWorker"
         private const val CHANNEL_ID = "backup"
-        private const val WORK_NAME = "photosync-auto-backup"
+        private const val WORK_NAME = "pixsynq-auto-backup"
 
         /** Schedule or cancel the periodic job to match the user's toggle. */
         fun sync(context: Context, enabled: Boolean) {

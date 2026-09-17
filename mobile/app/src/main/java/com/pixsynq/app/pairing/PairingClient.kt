@@ -1,7 +1,7 @@
-package com.photosync.app.pairing
+package com.pixsynq.app.pairing
 
 import android.os.Build
-import com.photosync.app.net.PinnedHttp
+import com.pixsynq.app.net.PinnedHttp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

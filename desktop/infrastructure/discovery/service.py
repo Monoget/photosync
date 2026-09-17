@@ -2,10 +2,10 @@
 
 Two roles, both owned by :class:`DiscoveryService`:
 
-* **Announce** — register ``_photosync._tcp.local.`` for this PC so phones
+* **Announce** — register ``_pixsynq._tcp.local.`` for this PC so phones
   can find it. The advertised port is a real bound TCP listener that the
   Phase-5 transfer receiver will take over.
-* **Browse** — watch for ``_photosync-mobile._tcp.local.`` announcements so
+* **Browse** — watch for ``_pixsynq-mobile._tcp.local.`` announcements so
   the UI can show phones on the network before pairing.
 
 Zeroconf runs its own daemon threads; results are delivered to the GUI

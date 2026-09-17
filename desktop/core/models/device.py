@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class DiscoveredDevice:
-    """A PhotoSync peer seen on the local network (not necessarily paired)."""
+    """A PixSynq peer seen on the local network (not necessarily paired)."""
 
     service_name: str
     display_name: str

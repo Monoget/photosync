@@ -27,7 +27,7 @@ from infrastructure.configuration.settings_store import SettingsStore
 from infrastructure.storage.destination import default_destination, validate_destination
 
 PRIVACY_TEXT = (
-    "PhotoSync collects your name, email address, Windows username, "
+    "PixSynq collects your name, email address, Windows username, "
     "app version, and operating system details to register this "
     "installation and notify you about software updates. The server "
     "records the IP address of the registration request. Nothing else "
@@ -38,7 +38,7 @@ PRIVACY_TEXT = (
 class SetupWizard(QDialog):
     def __init__(self, settings: SettingsStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("PhotoSync Setup")
+        self.setWindowTitle("PixSynq Setup")
         self.setModal(True)
         self.setMinimumSize(560, 480)
         self._settings = settings
@@ -56,7 +56,7 @@ class SetupWizard(QDialog):
     # -- Pages ----------------------------------------------------------
 
     def _welcome_page(self) -> QWidget:
-        page, body = self._page("Welcome to PhotoSync")
+        page, body = self._page("Welcome to PixSynq")
         sub = QLabel(
             "Automatically back up your Android photos\n"
             "to your Windows PC over Wi-Fi."
@@ -68,7 +68,7 @@ class SetupWizard(QDialog):
         return page
 
     def _register_page(self) -> QWidget:
-        page, body = self._page("Register PhotoSync")
+        page, body = self._page("Register PixSynq")
 
         body.addWidget(self._field_label("Name"))
         self.name_edit = QLineEdit()
@@ -87,7 +87,7 @@ class SetupWizard(QDialog):
 
         self.consent_box = QCheckBox(
             "I agree to the Privacy Policy and understand\n"
-            "the information PhotoSync collects."
+            "the information PixSynq collects."
         )
         body.addWidget(self.consent_box)
 
@@ -108,7 +108,7 @@ class SetupWizard(QDialog):
     def _folder_page(self) -> QWidget:
         page, body = self._page("Choose where your photos should be stored")
 
-        sub = QLabel("PhotoSync will save transferred photos here:")
+        sub = QLabel("PixSynq will save transferred photos here:")
         sub.setProperty("class", "muted")
         body.addWidget(sub)
 
@@ -140,14 +140,14 @@ class SetupWizard(QDialog):
     def _ready_page(self) -> QWidget:
         page, body = self._page("You're all set")
         sub = QLabel(
-            "PhotoSync is ready. Next, install PhotoSync on your Android "
+            "PixSynq is ready. Next, install PixSynq on your Android "
             "phone and pair it from the Devices page."
         )
         sub.setProperty("class", "muted")
         sub.setWordWrap(True)
         body.addWidget(sub)
         body.addStretch(1)
-        body.addLayout(self._buttons(primary=("Open PhotoSync", self.accept)))
+        body.addLayout(self._buttons(primary=("Open PixSynq", self.accept)))
         return page
 
     # -- Helpers --------------------------------------------------------

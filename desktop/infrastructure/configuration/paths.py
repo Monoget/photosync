@@ -1,6 +1,6 @@
 """Per-user application data locations.
 
-User data lives under %LOCALAPPDATA%\\PhotoSync (never in the install
+User data lives under %LOCALAPPDATA%\\PixSynq (never in the install
 directory, never alongside the photos themselves).
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ class AppPaths:
             base = Path(local_appdata)
         else:  # non-Windows dev environment fallback
             base = Path.home() / ".local" / "share"
-        return cls(data_dir=base / "PhotoSync")
+        return cls(data_dir=base / "PixSynq")
 
     @property
     def logs_dir(self) -> Path:
@@ -29,7 +29,7 @@ class AppPaths:
 
     @property
     def database_path(self) -> Path:
-        return self.data_dir / "photosync.db"
+        return self.data_dir / "pixsynq.db"
 
     @property
     def settings_path(self) -> Path:

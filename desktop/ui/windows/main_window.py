@@ -43,7 +43,7 @@ class MainWindow(QMainWindow):
         # of exiting (spec §20). The tray's Exit sets allow_close.
         self.allow_close = False
         self.tray_available = False
-        self.setWindowTitle("PhotoSync")
+        self.setWindowTitle("PixSynq")
         self.setMinimumSize(QSize(960, 640))
 
         root = QWidget(objectName="appRoot")
@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 16, 12, 16)
         layout.setSpacing(4)
 
-        brand = QLabel("PhotoSync")
+        brand = QLabel("PixSynq")
         brand.setProperty("class", "pageTitle")
         layout.addWidget(brand)
         layout.addSpacing(20)

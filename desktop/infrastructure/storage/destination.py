@@ -14,11 +14,11 @@ class FolderCheck:
 
 
 def default_destination() -> Path:
-    """Suggest <user Pictures>\\PhotoSync (never inside the install dir)."""
+    """Suggest <user Pictures>\\PixSynq (never inside the install dir)."""
     home = Path.home()
     pictures = home / "Pictures"
     base = pictures if pictures.is_dir() else home
-    return base / "PhotoSync"
+    return base / "PixSynq"
 
 
 def validate_destination(path: Path) -> FolderCheck:
@@ -31,11 +31,11 @@ def validate_destination(path: Path) -> FolderCheck:
     except OSError as exc:
         return FolderCheck(False, f"Folder cannot be created: {exc.strerror or exc}")
 
-    probe = path / f".photosync-write-test-{uuid.uuid4().hex[:8]}"
+    probe = path / f".pixsynq-write-test-{uuid.uuid4().hex[:8]}"
     try:
         probe.write_bytes(b"")
     except OSError:
-        return FolderCheck(False, "PhotoSync does not have permission to write here.")
+        return FolderCheck(False, "PixSynq does not have permission to write here.")
     finally:
         try:
             os.unlink(probe)
